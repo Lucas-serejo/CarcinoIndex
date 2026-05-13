@@ -1,0 +1,13 @@
+torch
+torchvision
+opencv-python
+numpy
+matplotlib
+jupyter
+segment-anything
+scikit-learn
+xgboost
+pandas
+fastapi
+uvicorn
+Pillow
