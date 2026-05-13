@@ -1,0 +1,61 @@
+# Ambientes virtuais e pacotes Python
+venv/
+env/
+.env
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# VS Code / IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Datasets pesados e amostras locais (preservar a estrutura de diretórios via .gitkeep)
+datasets/raw/*
+!datasets/raw/.gitkeep
+datasets/processed/*
+!datasets/processed/.gitkeep
+datasets/masks/*
+!datasets/masks/.gitkeep
+datasets/samples/*
+!datasets/samples/.gitkeep
+
+# Pesos de Modelos e Checkpoints
+experiments/checkpoints/*
+!experiments/checkpoints/.gitkeep
+experiments/models/*
+!experiments/models/.gitkeep
+experiments/outputs/*
+!experiments/outputs/.gitkeep
+experiments/logs/*
+!experiments/logs/.gitkeep
+
+# Modelos SAM baixados localmente (geralmente .pth ou .pt)
+*.pth
+*.pt
+*.onnx
+
+# SO / Sistema
+.DS_Store
+Thumbs.db
