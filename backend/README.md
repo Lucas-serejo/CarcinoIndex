@@ -16,7 +16,8 @@ Conforme as diretrizes de desenvolvimento do projeto, evitamos abstrações prem
   - `main.py`: Ponto de inicialização do servidor Uvicorn.
 
 - **`ai/`**: Implementações de algoritmos de Visão Computacional e Aprendizado de Máquina.
-  - `segmentation/`: Integração com o Segment Anything Model (SAM).
+  - `segmentation/`: Wrapper real do SAM 2.1 Hiera Small para prompts de
+    bounding box e pontos positivos/negativos.
   - `feature_extraction/`: Funções puras para extração de propriedades de máscaras (área, bounding box).
   - `classification/`: Placeholders para o futuro modelo preditivo dos scores LS (Sugarbaker).
   - `utils/`: Utilitários de leitura/escrita de imagens usando OpenCV e Pillow.
