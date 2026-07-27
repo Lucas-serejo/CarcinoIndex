@@ -103,6 +103,12 @@ selecionada é a de maior score previsto pelo modelo, mas esse score não
 representa confiança clínica. Máscaras automáticas também não constituem
 *ground truth*. Imagens clínicas e checkpoints não devem ser versionados.
 
+Para validar uma imagem local não clínica com box e pontos, use
+`scripts/run_sam2_real_image.py`. O contrato de estado e concorrência para
+uma futura integração está em
+`docs/architecture/sam2_inference_contract.md`; nenhum endpoint é
+implementado nesta etapa.
+
 ---
 
 ## ⚠️ Limitações e Escopo Atual

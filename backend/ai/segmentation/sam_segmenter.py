@@ -11,6 +11,8 @@ from typing import Any, Iterator, Sequence
 import numpy as np
 import torch
 
+from .types import BoxPrompt, PointsPrompt, SegmentationPrompt
+
 
 MODEL_NAME = "sam2.1_hiera_small"
 DEFAULT_MODEL_CONFIG = "configs/sam2.1/sam2.1_hiera_s.yaml"
@@ -26,6 +28,10 @@ class ImageNotSetError(RuntimeError):
 
 class InvalidPromptError(ValueError):
     """Raised when box or point prompt coordinates are invalid."""
+
+
+class UnsupportedPromptError(TypeError):
+    """Raised when infer() receives an unknown internal prompt type."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,6 +61,39 @@ class SegmentationResult:
     prediction_time_seconds: float
     peak_vram_bytes: int | None
 
+    def to_metadata_dict(self) -> dict[str, object]:
+        """Return JSON-serializable metadata without masks, logits, or paths."""
+        mask_area_pixels = int(np.count_nonzero(self.selected_mask))
+        image_pixels = int(self.image_shape[0] * self.image_shape[1])
+        mask_area_ratio = (
+            float(mask_area_pixels / image_pixels) if image_pixels else 0.0
+        )
+        config_path = Path(self.model_config)
+        config_identifier = (
+            config_path.name if config_path.is_absolute() else config_path.as_posix()
+        )
+        return {
+            "model_name": str(self.model_name),
+            "model_config": config_identifier,
+            "checkpoint_name": Path(self.checkpoint_name).name,
+            "device": str(self.device),
+            "dtype": str(self.dtype),
+            "prompt_type": str(self.prompt_type),
+            "prompt_data": _to_json_value(self.prompt_data),
+            "image_shape": [int(value) for value in self.image_shape],
+            "selected_index": int(self.selected_index),
+            "selected_score": float(self.selected_score),
+            "mask_shape": [int(value) for value in self.selected_mask.shape],
+            "mask_area_pixels": mask_area_pixels,
+            "mask_area_ratio": mask_area_ratio,
+            "load_time_seconds": _optional_float(self.load_time_seconds),
+            "embedding_time_seconds": _optional_float(self.embedding_time_seconds),
+            "prediction_time_seconds": float(self.prediction_time_seconds),
+            "peak_vram_bytes": (
+                None if self.peak_vram_bytes is None else int(self.peak_vram_bytes)
+            ),
+        }
+
 
 class SAM2Segmenter:
     """Explicit-lifecycle wrapper for SAM 2.1 Hiera Small image prediction.
@@ -62,6 +101,11 @@ class SAM2Segmenter:
     Images must be RGB NumPy arrays in HWC format. ``uint8`` images use the
     official [0, 255] input convention. Floating-point images are accepted
     only in [0, 1], matching torchvision's ``ToTensor`` behavior.
+
+    The predictor retains the current image. Interactive ``set_image()`` plus
+    ``segment_*()`` calls are not concurrency-safe. ``infer()`` provides one
+    logical set/predict/clear unit, but a shared instance still requires an
+    external service-level lock covering the entire call.
     """
 
     def __init__(
@@ -73,6 +117,8 @@ class SAM2Segmenter:
     ) -> None:
         if not isinstance(model_config, str) or not model_config.strip():
             raise ValueError("model_config must be a non-empty logical config name.")
+        if Path(model_config).is_absolute():
+            raise ValueError("model_config must be a logical or relative config name.")
         if not isinstance(device, str) or not (
             device == "cpu" or device == "cuda" or device.startswith("cuda:")
         ):
@@ -124,7 +170,7 @@ class SAM2Segmenter:
             return self
         if not self.checkpoint_path.is_file():
             raise FileNotFoundError(
-                f"SAM 2 checkpoint not found: {self.checkpoint_path}"
+                f"SAM 2 checkpoint not found: {self.checkpoint_path.name}"
             )
         if self.device.startswith("cuda") and not torch.cuda.is_available():
             raise RuntimeError(
@@ -222,6 +268,41 @@ class SAM2Segmenter:
             multimask_output=multimask_output,
         )
 
+    def infer(
+        self,
+        image: np.ndarray,
+        prompt: SegmentationPrompt,
+    ) -> SegmentationResult:
+        """Run one state-cleaning inference unit.
+
+        The input array is copied before reaching the stateful predictor. The
+        loaded model is preserved, while image state is cleared on both success
+        and failure. Callers sharing one segmenter must synchronize this entire
+        method externally.
+        """
+        self._require_loaded()
+        validated = self._validate_image(image)
+        inference_image = np.array(validated, copy=True, order="C")
+
+        try:
+            self.set_image(inference_image)
+            if isinstance(prompt, BoxPrompt):
+                return self.segment_with_box(
+                    prompt.box,
+                    multimask_output=prompt.multimask_output,
+                )
+            if isinstance(prompt, PointsPrompt):
+                return self.segment_with_points(
+                    prompt.points,
+                    prompt.labels,
+                    multimask_output=prompt.multimask_output,
+                )
+            raise UnsupportedPromptError(
+                "infer() supports only BoxPrompt or PointsPrompt."
+            )
+        finally:
+            self.clear_image()
+
     def clear_image(self) -> None:
         """Clear image embeddings while keeping the loaded model."""
         if self._predictor is not None:
@@ -261,8 +342,10 @@ class SAM2Segmenter:
                 )
                 self._synchronize_cuda()
         except torch.cuda.OutOfMemoryError as exc:
+            self.clear_image()
             raise self._cuda_oom_error("predicting a mask", exc) from exc
         except Exception as exc:
+            self.clear_image()
             raise RuntimeError(f"SAM 2 predictor failed for {prompt_type}: {exc}") from exc
 
         prediction_time = time.perf_counter() - started
@@ -270,11 +353,13 @@ class SAM2Segmenter:
         scores_array = np.asarray(scores, dtype=np.float32)
         logits_array = None if logits is None else np.asarray(logits)
         if masks_array.ndim != 3 or scores_array.ndim != 1:
+            self.clear_image()
             raise RuntimeError(
                 "SAM 2 returned unexpected mask or score dimensions: "
                 f"{masks_array.shape}, {scores_array.shape}."
             )
         if masks_array.shape[0] == 0 or masks_array.shape[0] != scores_array.shape[0]:
+            self.clear_image()
             raise RuntimeError("SAM 2 returned inconsistent masks and scores.")
 
         selected_index = int(np.argmax(scores_array))
@@ -429,3 +514,22 @@ class SAM2Segmenter:
             f"allocated={allocated}, reserved={reserved}, peak={peak} bytes. "
             "No CPU or smaller-model fallback was attempted."
         )
+
+
+def _optional_float(value: float | None) -> float | None:
+    return None if value is None else float(value)
+
+
+def _to_json_value(value: Any) -> Any:
+    """Recursively convert NumPy-backed prompt metadata to Python values."""
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, dict):
+        return {str(key): _to_json_value(item) for key, item in value.items()}
+    if isinstance(value, (tuple, list)):
+        return [_to_json_value(item) for item in value]
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    return str(value)

@@ -6,12 +6,18 @@ from .sam_segmenter import (
     ModelNotLoadedError,
     SAM2Segmenter,
     SegmentationResult,
+    UnsupportedPromptError,
 )
+from .types import BoxPrompt, PointsPrompt, SegmentationPrompt
 
 __all__ = [
+    "BoxPrompt",
     "ImageNotSetError",
     "InvalidPromptError",
     "ModelNotLoadedError",
+    "PointsPrompt",
     "SAM2Segmenter",
+    "SegmentationPrompt",
     "SegmentationResult",
+    "UnsupportedPromptError",
 ]
