@@ -9,5 +9,7 @@ xgboost
 pandas
 fastapi
 uvicorn
+python-multipart
 Pillow
+httpx
 pytest

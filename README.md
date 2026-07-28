@@ -105,9 +105,18 @@ representa confiança clínica. Máscaras automáticas também não constituem
 
 Para validar uma imagem local não clínica com box e pontos, use
 `scripts/run_sam2_real_image.py`. O contrato de estado e concorrência para
-uma futura integração está em
-`docs/architecture/sam2_inference_contract.md`; nenhum endpoint é
-implementado nesta etapa.
+a API está em `docs/architecture/sam2_inference_contract.md`.
+
+### API experimental M3
+
+A API aceita segmentação assistida por box ou pontos, exige seleção manual da
+região PCI e permite LS manual opcional. O PCI é composto com o maior LS
+informado em cada uma das 13 regiões; enquanto houver região pendente, há
+somente subtotal e `pci_total` permanece nulo. O SAM não classifica lesões e
+área em pixels não é convertida em centímetros.
+
+Os comandos de configuração e execução com um único worker estão em
+`backend/README.md`. Não há persistência, frontend ou diagnóstico autônomo.
 
 ---
 

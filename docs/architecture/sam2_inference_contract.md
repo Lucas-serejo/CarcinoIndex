@@ -1,14 +1,13 @@
-# Contrato de inferência do SAM 2.1 para a M3
+# Contrato de inferência do SAM 2.1 na API M3
 
-Este documento descreve o limite entre o módulo de IA validado até a M2.5 e
-uma futura integração de aplicação. Ele não implementa FastAPI.
+Este documento descreve o limite implementado entre o módulo de IA validado
+até a M2.5 e a API experimental da M3.
 
 ## Instância do modelo
 
-O SAM 2.1 Hiera Small é caro para carregar. A aplicação deverá criar uma
-única instância de `SAM2Segmenter` no lifespan, chamar `load()` uma vez no
-startup e reutilizar o modelo entre inferências. No shutdown, deverá chamar
-`close()`.
+O SAM 2.1 Hiera Small é caro para carregar. O lifespan cria uma única
+instância de `SAM2Segmenter`, chama `load()` uma vez no startup e reutiliza o
+modelo entre inferências. No shutdown, chama `close()`.
 
 O checkpoint continua externo ao CarcinoIndex e a configuração permanece o
 identificador lógico `configs/sam2.1/sam2.1_hiera_s.yaml`.
@@ -27,9 +26,9 @@ Consequentemente:
 - `infer()` não implementa sincronização e também precisa de exclusão mútua
   quando a instância é compartilhada.
 
-## Estratégia recomendada para M3
+## Estratégia implementada na M3
 
-- Um serviço de aplicação mantém uma instância de `SAM2Segmenter`.
+- `SegmentationService` mantém uma instância de `SAM2Segmenter`.
 - O serviço, não o endpoint, é responsável pelo ciclo de vida do modelo.
 - Um lock do serviço cobre a chamada completa a `infer()`.
 - O modelo é carregado no startup/lifespan.
@@ -37,23 +36,28 @@ Consequentemente:
 - O endpoint nunca acessa diretamente o predictor oficial.
 - O endpoint depende do serviço de aplicação e trata somente o contrato HTTP.
 
-O tipo de lock, o comportamento com múltiplos workers e o limite de espera
-devem ser decididos na M3; nenhum lock foi adicionado ao wrapper.
+O serviço usa um `asyncio.Lock` que cobre integralmente
+`await asyncio.to_thread(segmenter.infer, image, prompt)`. O wrapper continua
+sem lock. Nesta fase a aplicação deve executar com exatamente um worker e
+aceita uma inferência por vez.
 
-## Contrato futuro
+## Contrato HTTP atual
 
 O fluxo esperado é:
 
-1. a camada HTTP valida formato, tamanho e limites do payload;
+1. a camada HTTP aceita somente JPEG ou PNG estático e valida bytes,
+   dimensões e pixels;
 2. a imagem é decodificada e convertida explicitamente para `np.ndarray` RGB;
 3. o prompt HTTP é convertido para `BoxPrompt` ou `PointsPrompt`;
 4. o serviço adquire o lock e chama `SAM2Segmenter.infer()`;
 5. `SegmentationResult.to_metadata_dict()` fornece metadados serializáveis;
-6. a máscara booleana é tratada separadamente dos metadados.
+6. a máscara booleana é codificada em PNG Base64, separada dos metadados.
 
 `to_metadata_dict()` não inclui máscaras, logits, caminhos pessoais ou
-conteúdo da imagem. A codificação futura da máscara ainda precisa ser
-decidida.
+conteúdo da imagem. Imagem, máscara e prompt não são persistidos.
+O campo `selected_score` permanece uma estimativa interna de qualidade da
+máscara produzida pelo SAM 2 e não representa confiança clínica, diagnóstico
+ou probabilidade de câncer.
 
 ## Fora de escopo atual
 
@@ -61,7 +65,7 @@ decidida.
 - múltiplas GPUs;
 - múltiplos workers;
 - armazenamento permanente;
-- RLE, PNG ou Base64 no contrato HTTP;
+- RLE e armazenamento de máscaras;
 - autenticação;
 - classificação LS;
 - tracking em vídeo;

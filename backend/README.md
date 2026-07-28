@@ -1,41 +1,54 @@
-# Módulo Backend & AI Pipeline — CarcinoIndex
+# Backend CarcinoIndex — M3
 
-Este módulo contém a API mínima (FastAPI) e a estrutura modular de processamento de Inteligência Artificial para validação experimental do **CarcinoIndex**.
+API experimental para segmentação assistida com SAM 2.1 Hiera Small e
+composição manual do PCI. O SAM produz uma máscara a partir de box ou pontos;
+ele não classifica lesões. O LS é opcional e sempre informado pelo usuário.
 
-Conforme as diretrizes de desenvolvimento do projeto, evitamos abstrações prematuras. A API atualmente expõe unicamente uma rota de verificação de integridade (`GET /health`), e os serviços da pipeline estão estruturados de forma limpa para desacoplar a pesquisa científica do código de produção.
+## Configuração
 
----
+Defina antes da execução:
 
-## 📦 Estrutura de Subpacotes
-
-- **`app/`**: Aplicação FastAPI.
-  - `api/`: Definição de rotas (apenas `/health` no momento).
-  - `core/`: Configurações centrais do sistema (ex: caminhos relativos).
-  - `schemas/`: Modelos de validação de dados via Pydantic.
-  - `services/`: Orquestradores da lógica de negócios (contém `pipeline_service.py` como esqueleto/stub arquitetural).
-  - `main.py`: Ponto de inicialização do servidor Uvicorn.
-
-- **`ai/`**: Implementações de algoritmos de Visão Computacional e Aprendizado de Máquina.
-  - `segmentation/`: Wrapper real do SAM 2.1 Hiera Small para prompts de
-    bounding box e pontos positivos/negativos.
-  - `feature_extraction/`: Funções puras para extração de propriedades de máscaras (área, bounding box).
-  - `classification/`: Placeholders para o futuro modelo preditivo dos scores LS (Sugarbaker).
-  - `utils/`: Utilitários de leitura/escrita de imagens usando OpenCV e Pillow.
-
----
-
-## 🛠️ Execução Local
-
-### 1. Ativação do Ambiente Virtual
-Certifique-se de ter criado e ativado o ambiente Python na pasta `backend/`:
-```bash
-python -m venv venv
-source venv/bin/activate  # Linux/macOS
-venv\Scripts\activate     # Windows
+```powershell
+$env:SAM2_CHECKPOINT_PATH = "caminho\externo\sam2.1_hiera_small.pt"
+$env:SAM2_MODEL_CONFIG = "configs/sam2.1/sam2.1_hiera_s.yaml"
+$env:SAM2_DEVICE = "cuda"
+$env:SAM2_DTYPE = "float32"
 ```
 
-### 2. Inicialização do Servidor de Desenvolvimento
-```bash
-uvicorn app.main:app --reload
+Configurações opcionais:
+
+```powershell
+$env:MAX_UPLOAD_BYTES = "10485760"
+$env:MAX_IMAGE_WIDTH = "4096"
+$env:MAX_IMAGE_HEIGHT = "4096"
+$env:MAX_IMAGE_PIXELS = "16000000"
+$env:API_PREFIX = "/api/v1"
 ```
-Acesse `http://localhost:8000/health` para validar se o backend está ativo.
+
+O caminho do checkpoint é obrigatório no startup real. Não há fallback para
+CPU ou para outro modelo.
+
+## Execução
+
+Execute a partir da raiz do repositório:
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn backend.app.main:app `
+  --host 127.0.0.1 `
+  --port 8000 `
+  --workers 1
+```
+
+Nesta fase são obrigatórios um único worker e uma inferência por vez. O modelo
+é carregado uma vez no lifespan e fechado no shutdown.
+
+Rotas:
+
+- `GET /health`;
+- `POST /api/v1/segmentations`;
+- `GET /api/v1/pci/regions`;
+- `POST /api/v1/pci/calculate`.
+
+JPEG e PNG estáticos são processados somente em memória. A aplicação não
+persiste imagens, máscaras, prompts ou resultados. O uso é experimental e não
+se destina a diagnóstico autônomo.
