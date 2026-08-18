@@ -4,10 +4,12 @@ opencv-python
 numpy
 matplotlib
 jupyter
-segment-anything
 scikit-learn
 xgboost
 pandas
 fastapi
 uvicorn
+python-multipart
 Pillow
+httpx
+pytest

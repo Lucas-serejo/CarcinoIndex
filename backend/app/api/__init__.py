@@ -1,14 +1,14 @@
+"""Application routers."""
+
 from fastapi import APIRouter
-from app.schemas import HealthCheckResponse
 
-router = APIRouter()
+from .health import router as health_router
+from .pci import router as pci_router
+from .segmentation import router as segmentation_router
 
-@router.get("/health", response_model=HealthCheckResponse, summary="Verificação de integridade da API")
-def health_check():
-    """
-    Endpoint minimalista para checagem de disponibilidade do serviço backend.
-    """
-    return HealthCheckResponse(
-        status="ok",
-        message="CarcinoIndex API operacional para suporte à pesquisa experimental."
-    )
+
+api_router = APIRouter()
+api_router.include_router(pci_router)
+api_router.include_router(segmentation_router)
+
+__all__ = ["api_router", "health_router"]
