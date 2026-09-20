@@ -57,6 +57,15 @@ class SegmentationResponse(BaseModel):
     mask: MaskResponse
 
 
+class PersistedSegmentationResponse(BaseModel):
+    attempt_id: UUID
+    evaluation_id: UUID
+    sequence_number: int
+    region: RegionSelectionResponse
+    metadata: dict[str, Any]
+    mask: MaskResponse
+
+
 class PCIObservationRequest(BaseModel):
     observation_id: str = Field(min_length=1)
     analysis_id: str | None = None

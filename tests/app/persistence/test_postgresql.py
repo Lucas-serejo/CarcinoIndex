@@ -1,17 +1,14 @@
 """Real PostgreSQL tests; each test owns a random schema, never public tables."""
 
-import os
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 from uuid import uuid4
 
 import pytest
 from alembic import command
 from alembic.autogenerate import compare_metadata
-from alembic.config import Config
 from alembic.migration import MigrationContext
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
 
 from backend.app.persistence.database import create_session_factory
@@ -19,33 +16,6 @@ from backend.app.persistence.models import Base, ClinicalCase, Evaluation, Image
 from backend.app.persistence.repository import ExperimentRepository
 
 pytestmark = pytest.mark.postgresql
-
-
-@pytest.fixture
-def database():
-    url = os.getenv("TEST_DATABASE_URL")
-    if not url:
-        pytest.skip("Set TEST_DATABASE_URL to a disposable PostgreSQL database.")
-    if not url.startswith("postgresql+psycopg://"):
-        pytest.fail("TEST_DATABASE_URL must use postgresql+psycopg.")
-    schema = "test_" + uuid4().hex
-    admin = create_engine(url)
-    engine = None
-    try:
-        with admin.begin() as connection:
-            connection.execute(text(f'CREATE SCHEMA "{schema}"'))
-        engine = create_engine(url, connect_args={"options": f"-csearch_path={schema}"})
-        config = Config(str(Path(__file__).resolve().parents[3] / "alembic.ini"))
-        with engine.begin() as connection:
-            config.attributes["connection"] = connection
-            command.upgrade(config, "head")
-        yield engine, config
-    finally:
-        if engine is not None:
-            engine.dispose()
-        with admin.begin() as connection:
-            connection.execute(text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))
-        admin.dispose()
 
 
 def seed(session):

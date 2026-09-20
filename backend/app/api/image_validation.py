@@ -31,6 +31,13 @@ async def decode_image_upload(
         )
 
     content = await upload.read(settings.max_upload_bytes + 1)
+    return decode_image_bytes(content, settings, expected_format=expected_format)
+
+
+def decode_image_bytes(
+    content: bytes, settings: Settings, *, expected_format: str | None = None,
+) -> np.ndarray:
+    """Decode stored bytes or uploads without changing orientation or pixels."""
     if not content:
         raise APIError(422, "empty_image", "The uploaded image is empty.")
     if len(content) > settings.max_upload_bytes:
@@ -46,7 +53,9 @@ async def decode_image_upload(
             frame_count = int(getattr(probe, "n_frames", 1))
             animated = bool(getattr(probe, "is_animated", False))
             width, height = probe.size
-            if actual_format != expected_format:
+            if actual_format not in SUPPORTED_MEDIA_TYPES.values():
+                raise APIError(415, "unsupported_media_type", "Only JPEG and PNG are accepted.")
+            if expected_format is not None and actual_format != expected_format:
                 raise APIError(
                     415,
                     "media_type_mismatch",
