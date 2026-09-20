@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import json
 import math
+import base64
+from uuid import UUID
 from typing import Annotated, Literal
 
 import torch
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from sqlalchemy.orm import Session, sessionmaker
 
 from backend.ai.segmentation import (
     BoxPrompt,
@@ -16,15 +19,105 @@ from backend.ai.segmentation import (
     PointsPrompt,
     SegmentationPrompt,
 )
-from backend.app.api.dependencies import get_segmentation_service
+from backend.app.api.dependencies import get_segmentation_service, get_session_factory, get_storage
 from backend.app.api.errors import APIError
-from backend.app.api.image_validation import decode_image_upload
+from backend.app.api.image_validation import decode_image_upload, decode_image_bytes
 from backend.app.core.config import Settings
-from backend.app.schemas import SegmentationResponse
+from backend.app.schemas import SegmentationResponse, PersistedSegmentationResponse
+from backend.app.persistence.repository import ExperimentRepository
+from backend.app.storage.local import LocalStorage
 from backend.app.services.segmentation_service import SegmentationService
 
 
 router = APIRouter(tags=["segmentations"])
+
+
+@router.post(
+    "/evaluations/{evaluation_id}/segmentations",
+    response_model=PersistedSegmentationResponse,
+    status_code=201,
+)
+async def create_persisted_segmentation(
+    evaluation_id: UUID,
+    request: Request,
+    prompt_type: Annotated[Literal["box", "points"], Form()],
+    box: Annotated[str | None, Form()] = None,
+    points: Annotated[str | None, Form()] = None,
+    labels: Annotated[str | None, Form()] = None,
+    multimask_output: Annotated[bool, Form()] = True,
+    service: SegmentationService = Depends(get_segmentation_service),
+    sessions: sessionmaker[Session] = Depends(get_session_factory),
+    storage: LocalStorage = Depends(get_storage),
+) -> PersistedSegmentationResponse:
+    fields = await request.form()
+    if set(fields) - {"prompt_type", "box", "points", "labels", "multimask_output"}:
+        raise APIError(422, "request_validation_error", "Only prompt fields are accepted.")
+    prompt = build_prompt(
+        prompt_type, box=box, points=points, labels=labels,
+        multimask_output=multimask_output,
+    )
+    try:
+        # Release the read transaction before awaiting SAM inference.
+        with sessions() as session:
+            evaluation = ExperimentRepository(session).get_evaluation(evaluation_id)
+            if evaluation is None:
+                raise APIError(404, "evaluation_not_found", "Evaluation not found.")
+            if evaluation.status != "draft":
+                raise APIError(409, "evaluation_finalized", "Evaluation is finalized.")
+            region_id = evaluation.pci_region_id
+            image_path = evaluation.image.storage_path
+        decoded = decode_image_bytes(storage.read(image_path), request.app.state.settings)
+        result = await service.segment(decoded, prompt, region_id=region_id)
+        if isinstance(prompt, BoxPrompt):
+            prompt_data = {"box_xyxy": list(prompt.box)}
+        else:
+            prompt_data = {
+                "points_xy": [list(point) for point in prompt.points],
+                "labels": list(prompt.labels),
+            }
+        prompt_data["multimask_output"] = multimask_output
+        stored = storage.save(
+            base64.b64decode(result.mask_png_base64, validate=True),
+            category="masks", suffix=".png",
+        )
+        try:
+            with sessions.begin() as session:
+                try:
+                    attempt = ExperimentRepository(session).add_attempt(
+                        evaluation_id=evaluation_id, prompt_type=prompt_type,
+                        prompt_data=prompt_data, mask_storage_path=stored.path,
+                        sam_metadata=result.metadata,
+                    )
+                except LookupError as exc:
+                    raise APIError(404, "evaluation_not_found", "Evaluation not found.") from exc
+                except ValueError as exc:
+                    raise APIError(409, "evaluation_finalized", "Evaluation is finalized.") from exc
+                response = PersistedSegmentationResponse(
+                    attempt_id=attempt.id, evaluation_id=evaluation_id,
+                    sequence_number=attempt.sequence_number,
+                    region={"region_id": region_id, "region_name": result.region_name},
+                    metadata=result.metadata,
+                    mask={"width": result.mask_width, "height": result.mask_height,
+                          "data": result.mask_png_base64},
+                )
+        except BaseException:
+            storage.delete(stored.path)
+            raise
+        return response
+    except APIError:
+        raise
+    except InvalidPromptError as exc:
+        raise APIError(422, "invalid_prompt", str(exc)) from exc
+    except torch.cuda.OutOfMemoryError as exc:
+        raise APIError(503, "cuda_out_of_memory", "CUDA memory was exhausted during segmentation.") from exc
+    except ModelNotLoadedError as exc:
+        raise APIError(503, "model_unavailable", "Segmentation model unavailable.") from exc
+    except RuntimeError as exc:
+        if "CUDA out of memory" in str(exc):
+            raise APIError(503, "cuda_out_of_memory", "CUDA memory was exhausted during segmentation.") from exc
+        raise APIError(500, "segmentation_failed", "Could not create the segmentation attempt.") from exc
+    except Exception as exc:
+        raise APIError(500, "segmentation_failed", "Could not create the segmentation attempt.") from exc
 
 
 def _parse_json_array(raw: str | None, field_name: str) -> list[object] | None:

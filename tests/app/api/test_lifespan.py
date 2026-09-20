@@ -9,6 +9,27 @@ from backend.app.core.config import Settings
 from backend.app.main import create_app
 
 
+def test_persistence_engine_is_owned_only_during_lifespan(monkeypatch, tmp_path):
+    from unittest.mock import Mock
+    from backend.app.services.segmentation_service import SegmentationService
+    from test_api import APIFakeSegmenter
+
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://localhost/unused")
+    monkeypatch.setenv("STORAGE_ROOT", str(tmp_path))
+    engine = Mock()
+    create_engine = Mock(return_value=engine)
+    monkeypatch.setattr("backend.app.main.create_database_engine", create_engine)
+    app = create_app(settings=Settings(), segmentation_service=SegmentationService(APIFakeSegmenter()))
+    create_engine.assert_not_called()
+    with TestClient(app):
+        create_engine.assert_called_once()
+        assert app.state.session_factory is not None
+        assert app.state.storage.root == tmp_path.resolve()
+        engine.dispose.assert_not_called()
+    engine.dispose.assert_called_once()
+    assert app.state.session_factory is None and app.state.storage is None
+
+
 def test_real_lifespan_requires_checkpoint_configuration() -> None:
     app = create_app(settings=Settings(sam2_checkpoint_path=None))
     with pytest.raises(RuntimeError, match="SAM2_CHECKPOINT_PATH"):

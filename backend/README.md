@@ -53,7 +53,7 @@ JPEG e PNG estáticos são processados somente em memória. A aplicação não
 persiste imagens, máscaras, prompts ou resultados nesses endpoints. O uso é experimental e não
 se destina a diagnóstico autônomo.
 
-## Persistência experimental (uso explícito por Python)
+## Persistência experimental
 
 Execute na raiz do repositório. PostgreSQL roda no Docker; backend e SAM
 continuam no ambiente Python local com CUDA. Para acrescentar somente as
@@ -100,3 +100,32 @@ O backend usa `SAM2_CHECKPOINT_PATH` e CUDA. Os testes reais existentes leem
 $env:SAM2_CHECKPOINT = $env:SAM2_CHECKPOINT_PATH
 python -m pytest -m "sam2_integration or sam2_api_integration" -q
 ```
+
+### Segmentação de uma avaliação existente
+
+`POST /api/v1/evaluations/{evaluation_id}/segmentations` recebe formulário
+com `prompt_type`, `box` ou `points` + `labels` (arrays JSON em strings) e
+`multimask_output` opcional, padrão `true`. Não aceita imagem, região ou LS;
+campos extras são rejeitados. Exemplo:
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/api/v1/evaluations/UUID/segmentations" `
+  -F 'prompt_type=box' -F 'box=[2,2,25,20]' -F 'multimask_output=false'
+```
+
+Prepare ClinicalCase, Image e Evaluation por Python, conforme o documento de
+persistência. A região e a imagem vêm da Evaluation. A resposta `201` contém
+`attempt_id`, `evaluation_id`, `sequence_number`, `region`, `metadata` e
+`mask` (PNG Base64, largura e altura). Não há LS ou cálculo de PCI nessa rota.
+Evaluation inexistente retorna `404`; finalized retorna `409`; prompt inválido
+retorna `422`. Falhas internas retornam mensagem genérica, sem caminhos ou credenciais.
+
+Com `DATABASE_URL`, o lifespan configura engine/session factory e LocalStorage;
+a conexão é aberta ao usar o banco. O shutdown descarta a engine criada pela API.
+Sem essa variável, a nova rota retorna `503`, e a API stateless continua disponível.
+Não há criação de tabelas nem migrations automáticas. Para testes, `create_app`
+aceita `session_factory` e `storage` juntos, além do serviço SAM fake.
+
+A máscara é salva antes da transação de escrita. Falhas no registro ou commit
+removem o novo PNG; arquivos anteriores permanecem intactos. Consulte as
+limitações de interrupção e commit incerto no documento de persistência.
