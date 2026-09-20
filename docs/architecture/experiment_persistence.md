@@ -1,6 +1,7 @@
 # Fundação de persistência experimental
 
-Esta camada é independente dos endpoints M3 e do `SAM2Segmenter`. Nenhuma
+Esta camada é independente do `SAM2Segmenter` e é usada pela rota de tentativas.
+A rota stateless permanece independente do banco. Nenhuma
 inferência ou gravação é disparada por importar os módulos. O contrato
 [SAM 2.1](sam2_inference_contract.md) permanece válido para a API atual.
 
@@ -107,3 +108,27 @@ correspondência entre migration e modelos e ciclo upgrade/downgrade.
 
 Referências técnicas: [transações SQLAlchemy 2.x](https://docs.sqlalchemy.org/en/20/orm/session_transaction.html)
 e [configuração Alembic](https://alembic.sqlalchemy.org/en/latest/tutorial.html).
+
+## Integração HTTP de tentativas
+
+`POST /api/v1/evaluations/{evaluation_id}/segmentations` busca uma avaliação
+existente, exige `draft` e obtém região PCI e storage_path da imagem relacionada.
+A transação de leitura termina antes da inferência. Os bytes do LocalStorage
+passam pelo mesmo decoder JPEG/PNG dos uploads, produzindo RGB uint8 sem
+redimensionamento ou transformação de orientação.
+
+O parser de prompts é compartilhado com a API stateless. A tentativa guarda
+`box_xyxy` ou `points_xy` + `labels`, sempre com `multimask_output`. Os metadados
+são os produzidos pelo SAM, sem incorporar imagem, máscara ou logits no JSONB.
+O PNG é salvo em `masks/`, e `add_attempt()` revalida draft com seu bloqueio
+existente e atribui a próxima sequência. O commit ocorre antes da resposta 201.
+Em falha da transação, a API tenta excluir somente o PNG recém-criado. Falha
+nessa exclusão retorna erro genérico e pode deixar um órfão. Interrupção do
+processo e confirmação de commit perdida continuam limitações: nessa última
+situação, o cleanup pode remover um arquivo cujo registro foi confirmado;
+é necessária reconciliação manual. Não há retries ou coordenação distribuída.
+
+A resposta traz IDs, sequência, região, metadados e PNG Base64, sem caminhos
+locais. A avaliação permanece draft e seus campos clínicos não são alterados.
+Testes HTTP usam SAM fake; os testes PostgreSQL compartilham o fixture de
+schema isolado em `tests/app/conftest.py` e são executados pelo workflow atual.

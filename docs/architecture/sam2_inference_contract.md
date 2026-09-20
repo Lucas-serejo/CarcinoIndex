@@ -54,7 +54,9 @@ O fluxo esperado é:
 6. a máscara booleana é codificada em PNG Base64, separada dos metadados.
 
 `to_metadata_dict()` não inclui máscaras, logits, caminhos pessoais ou
-conteúdo da imagem. Imagem, máscara e prompt não são persistidos.
+conteúdo da imagem. Na rota stateless, imagem, máscara e prompt não são persistidos.
+A rota de tentativas reutiliza o serviço e lock e persiste máscaras e prompts;
+veja [persistência experimental](experiment_persistence.md).
 O campo `selected_score` permanece uma estimativa interna de qualidade da
 máscara produzida pelo SAM 2 e não representa confiança clínica, diagnóstico
 ou probabilidade de câncer.
@@ -64,8 +66,7 @@ ou probabilidade de câncer.
 - fila de inferência;
 - múltiplas GPUs;
 - múltiplos workers;
-- armazenamento permanente;
-- RLE e armazenamento de máscaras;
+- RLE;
 - autenticação;
 - classificação LS;
 - tracking em vídeo;
