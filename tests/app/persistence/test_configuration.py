@@ -41,6 +41,10 @@ def test_migration_renders_postgresql_without_connection(monkeypatch):
     assert "JSONB" in sql
     assert "TIMESTAMP WITH TIME ZONE" in sql
     assert "uq_attempt_evaluation_sequence" in sql
+    assert "status != 'finalized' OR clinical_ls IS NOT NULL" in sql
+    assert "clinical_ls BETWEEN 0 AND 3" in sql
+    assert "annotator_confidence" in sql
+    assert "original_filename" not in sql
     output.truncate(0)
     output.seek(0)
     command.downgrade(config, "0001_experiment:base", sql=True)

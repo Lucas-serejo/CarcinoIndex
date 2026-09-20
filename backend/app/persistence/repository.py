@@ -20,9 +20,9 @@ class ExperimentRepository:
         self.session.flush()
         return case
 
-    def add_image(self, *, case_id: UUID, original_filename: str, storage_path: str,
+    def add_image(self, *, case_id: UUID, storage_path: str,
                   width: int, height: int, sha256: str) -> Image:
-        image = Image(case_id=case_id, original_filename=original_filename,
+        image = Image(case_id=case_id,
                       storage_path=storage_path, width=width, height=height, sha256=sha256)
         self.session.add(image)
         self.session.flush()
@@ -30,10 +30,10 @@ class ExperimentRepository:
 
     def create_evaluation(self, *, image_id: UUID, pci_region_id: int,
                           annotator_code: str, clinical_ls: int | None = None,
-                          confidence: float | None = None) -> Evaluation:
+                          annotator_confidence: float | None = None) -> Evaluation:
         evaluation = Evaluation(image_id=image_id, pci_region_id=pci_region_id,
                                 annotator_code=annotator_code, clinical_ls=clinical_ls,
-                                confidence=confidence)
+                                annotator_confidence=annotator_confidence)
         self.session.add(evaluation)
         self.session.flush()
         return evaluation
@@ -71,11 +71,13 @@ class ExperimentRepository:
         self.session.flush()
         return attempt
 
-    def finalize_evaluation(self, evaluation_id: UUID, *, clinical_ls: int | None,
-                            confidence: float | None = None) -> Evaluation:
+    def finalize_evaluation(self, evaluation_id: UUID, *, clinical_ls: int,
+                            annotator_confidence: float | None = None) -> Evaluation:
+        if type(clinical_ls) is not int or clinical_ls not in range(4):
+            raise ValueError("clinical_ls must be an integer between 0 and 3 to finalize.")
         evaluation = self._lock_draft(evaluation_id)
         evaluation.clinical_ls = clinical_ls
-        evaluation.confidence = confidence
+        evaluation.annotator_confidence = annotator_confidence
         evaluation.status = "finalized"
         evaluation.finalized_at = datetime.now(timezone.utc)
         self.session.flush()

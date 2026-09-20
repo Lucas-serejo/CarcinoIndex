@@ -28,13 +28,11 @@ class Image(Base):
     __table_args__ = (
         CheckConstraint("width > 0 AND height > 0", name="ck_image_dimensions"),
         CheckConstraint("sha256 ~ '^[0-9a-f]{64}$'", name="ck_image_sha256"),
-        CheckConstraint("length(trim(original_filename)) > 0", name="ck_image_filename"),
         CheckConstraint("length(trim(storage_path)) > 0", name="ck_image_path"),
     )
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
     case_id: Mapped[UUID] = mapped_column(ForeignKey("clinical_cases.id", ondelete="RESTRICT"), index=True)
-    original_filename: Mapped[str] = mapped_column(Text)
     storage_path: Mapped[str] = mapped_column(Text, unique=True)
     width: Mapped[int] = mapped_column(Integer)
     height: Mapped[int] = mapped_column(Integer)
@@ -49,7 +47,8 @@ class Evaluation(Base):
     __table_args__ = (
         CheckConstraint("pci_region_id BETWEEN 0 AND 12", name="ck_evaluation_region"),
         CheckConstraint("clinical_ls BETWEEN 0 AND 3", name="ck_evaluation_ls"),
-        CheckConstraint("confidence BETWEEN 0 AND 1", name="ck_evaluation_confidence"),
+        CheckConstraint("status != 'finalized' OR clinical_ls IS NOT NULL", name="ck_evaluation_finalized_ls"),
+        CheckConstraint("annotator_confidence BETWEEN 0 AND 1", name="ck_evaluation_annotator_confidence"),
         CheckConstraint("length(trim(annotator_code)) > 0", name="ck_evaluation_annotator"),
         CheckConstraint("status IN ('draft', 'finalized')", name="ck_evaluation_status"),
         CheckConstraint("(status = 'draft' AND finalized_at IS NULL) OR (status = 'finalized' AND finalized_at IS NOT NULL)", name="ck_evaluation_finalized_at"),
@@ -60,7 +59,7 @@ class Evaluation(Base):
     pci_region_id: Mapped[int] = mapped_column(Integer)
     annotator_code: Mapped[str] = mapped_column(String(128))
     clinical_ls: Mapped[int | None] = mapped_column(Integer)
-    confidence: Mapped[float | None] = mapped_column(Float)
+    annotator_confidence: Mapped[float | None] = mapped_column(Float)
     status: Mapped[str] = mapped_column(String(16), server_default="draft")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     finalized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

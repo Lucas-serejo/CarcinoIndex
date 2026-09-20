@@ -93,4 +93,10 @@ python -m pytest tests/app/persistence -q -ra
 Sem `TEST_DATABASE_URL`, os testes PostgreSQL são marcados como skipped.
 Com ela configurada, falhas de conexão são erros. Cada teste cria e remove
 somente um schema aleatório próprio. Não há substituição por SQLite.
-Testes reais do SAM continuam dependendo de `SAM2_CHECKPOINT` e CUDA.
+O backend usa `SAM2_CHECKPOINT_PATH` e CUDA. Os testes reais existentes leem
+`SAM2_CHECKPOINT`; para executá-los com o mesmo checkpoint:
+
+```powershell
+$env:SAM2_CHECKPOINT = $env:SAM2_CHECKPOINT_PATH
+python -m pytest -m "sam2_integration or sam2_api_integration" -q
+```

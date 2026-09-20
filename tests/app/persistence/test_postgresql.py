@@ -1,6 +1,7 @@
 """Real PostgreSQL tests; each test owns a random schema, never public tables."""
 
 import os
+from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from uuid import uuid4
@@ -50,7 +51,7 @@ def database():
 def seed(session):
     repo = ExperimentRepository(session)
     case = repo.create_case("anonymous-001")
-    image = repo.add_image(case_id=case.id, original_filename="synthetic.png",
+    image = repo.add_image(case_id=case.id,
                            storage_path=f"images/{uuid4().hex}.png", width=32, height=24, sha256="a" * 64)
     return repo.create_evaluation(image_id=image.id, pci_region_id=0, annotator_code="expert-001")
 
@@ -62,21 +63,22 @@ def attempt(repo, evaluation_id):
                             sam_metadata={"selected_score": 0.91, "model_name": "sam2.1_hiera_small"})
 
 
-def test_round_trip_multiple_attempts_and_clinical_label(database):
+@pytest.mark.parametrize("clinical_ls", [0, 1, 2, 3])
+def test_round_trip_multiple_attempts_and_clinical_label(database, clinical_ls):
     factory = create_session_factory(database[0])
     with factory.begin() as session:
         evaluation = seed(session)
         eid = evaluation.id
-        assert evaluation.clinical_ls is None and evaluation.confidence is None
+        assert evaluation.clinical_ls is None and evaluation.annotator_confidence is None
         assert evaluation.status == "draft" and evaluation.finalized_at is None
         repo = ExperimentRepository(session)
         assert attempt(repo, eid).sequence_number == 1
         assert attempt(repo, eid).sequence_number == 2
-        repo.finalize_evaluation(eid, clinical_ls=2, confidence=0.7)
+        repo.finalize_evaluation(eid, clinical_ls=clinical_ls, annotator_confidence=0.7)
     with factory() as session:
         repo = ExperimentRepository(session)
         loaded = repo.get_evaluation(eid)
-        assert loaded.clinical_ls == 2 and loaded.confidence == 0.7
+        assert loaded.clinical_ls == clinical_ls and loaded.annotator_confidence == 0.7
         assert loaded.created_at.tzinfo and loaded.finalized_at.tzinfo
         assert loaded.image.case.anonymous_patient_code == "anonymous-001"
         attempts = repo.list_attempts(eid)
@@ -90,7 +92,7 @@ def test_round_trip_multiple_attempts_and_clinical_label(database):
             repo.finalize_evaluation(eid, clinical_ls=1)
 
 
-@pytest.mark.parametrize("field,value", [("pci_region_id", -1), ("pci_region_id", 13), ("clinical_ls", 4), ("clinical_ls", -1), ("confidence", 1.1), ("confidence", -0.1), ("confidence", float("nan")), ("status", "unknown"), ("status", "finalized"), ("annotator_code", " ")])
+@pytest.mark.parametrize("field,value", [("pci_region_id", -1), ("pci_region_id", 13), ("clinical_ls", 4), ("clinical_ls", -1), ("annotator_confidence", 1.1), ("annotator_confidence", -0.1), ("annotator_confidence", float("nan")), ("status", "unknown"), ("status", "finalized"), ("annotator_code", " ")])
 def test_evaluation_constraints(database, field, value):
     factory = create_session_factory(database[0])
     with factory.begin() as session:
@@ -107,6 +109,17 @@ def test_image_constraints(database, field, value):
         image = session.get(Image, evaluation.image_id)
         with pytest.raises(IntegrityError), session.begin_nested():
             setattr(image, field, value)
+            session.flush()
+
+
+@pytest.mark.parametrize("clinical_ls", [None, -1, 4])
+def test_database_rejects_finalized_without_valid_ls(database, clinical_ls):
+    with create_session_factory(database[0]).begin() as session:
+        evaluation = seed(session)
+        with pytest.raises(IntegrityError), session.begin_nested():
+            evaluation.status = "finalized"
+            evaluation.finalized_at = datetime.now(timezone.utc)
+            evaluation.clinical_ls = clinical_ls
             session.flush()
 
 
