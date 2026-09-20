@@ -100,7 +100,7 @@ async def create_persisted_segmentation(
                     mask={"width": result.mask_width, "height": result.mask_height,
                           "data": result.mask_png_base64},
                 )
-        except BaseException:
+        except Exception:
             storage.delete(stored.path)
             raise
         return response
