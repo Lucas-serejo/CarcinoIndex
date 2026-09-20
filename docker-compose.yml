@@ -1,7 +1,21 @@
-version: '3.8'
-
 services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-carcinoindex}
+      POSTGRES_USER: ${POSTGRES_USER:-carcinoindex}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
   backend:
+    profiles: ["legacy-backend"]
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -15,3 +29,6 @@ services:
       - ENVIRONMENT=development
     # Comando de inicialização simples rodando uvicorn com reload local
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  postgres_data:

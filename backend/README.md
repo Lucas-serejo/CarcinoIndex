@@ -50,5 +50,53 @@ Rotas:
 - `POST /api/v1/pci/calculate`.
 
 JPEG e PNG estáticos são processados somente em memória. A aplicação não
-persiste imagens, máscaras, prompts ou resultados. O uso é experimental e não
+persiste imagens, máscaras, prompts ou resultados nesses endpoints. O uso é experimental e não
 se destina a diagnóstico autônomo.
+
+## Persistência experimental (uso explícito por Python)
+
+Execute na raiz do repositório. PostgreSQL roda no Docker; backend e SAM
+continuam no ambiente Python local com CUDA. Para acrescentar somente as
+dependências desta etapa ao ambiente existente:
+
+```powershell
+python -m pip install "SQLAlchemy>=2.0,<2.1" "alembic>=1.13,<2" "psycopg[binary]>=3.1,<4"
+Copy-Item .env.example .env
+# Ajuste a senha no .env antes de iniciar.
+docker compose up -d postgres
+$env:DATABASE_URL = "postgresql+psycopg://carcinoindex:local-experiment-only@127.0.0.1:5432/carcinoindex"
+$env:STORAGE_ROOT = Join-Path (Get-Location) "storage"
+python -m alembic upgrade head
+```
+
+Use na URL a mesma senha configurada no `.env` (com escape URL quando
+necessário). Compose lê `.env`; Python/Alembic leem variáveis exportadas,
+sem carregar `.env` automaticamente. O banco não é criado nem migrado pelo
+startup da API. `STORAGE_ROOT` relativo é resolvido a partir do diretório de
+execução; prefira caminho absoluto. A pasta padrão `storage/` é ignorada pelo
+Git; qualquer pasta alternativa dentro do repositório também deve ser ignorada.
+
+O Compose inicia somente PostgreSQL por padrão. O serviço antigo de backend
+está no perfil `legacy-backend`; o caminho recomendado para SAM/CUDA segue
+sendo a execução local com um worker descrita acima.
+
+O modelo, decisões e exemplo de transação estão em
+[persistência experimental](../docs/architecture/experiment_persistence.md).
+
+```powershell
+python -m pytest -q -ra
+# Banco de teste separado, previamente criado; o usuário precisa criar schemas.
+$env:TEST_DATABASE_URL = "postgresql+psycopg://usuario:senha@127.0.0.1:5432/carcinoindex_test"
+python -m pytest tests/app/persistence -q -ra
+```
+
+Sem `TEST_DATABASE_URL`, os testes PostgreSQL são marcados como skipped.
+Com ela configurada, falhas de conexão são erros. Cada teste cria e remove
+somente um schema aleatório próprio. Não há substituição por SQLite.
+O backend usa `SAM2_CHECKPOINT_PATH` e CUDA. Os testes reais existentes leem
+`SAM2_CHECKPOINT`; para executá-los com o mesmo checkpoint:
+
+```powershell
+$env:SAM2_CHECKPOINT = $env:SAM2_CHECKPOINT_PATH
+python -m pytest -m "sam2_integration or sam2_api_integration" -q
+```
