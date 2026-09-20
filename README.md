@@ -116,7 +116,17 @@ somente subtotal e `pci_total` permanece nulo. O SAM não classifica lesões e
 área em pixels não é convertida em centímetros.
 
 Os comandos de configuração e execução com um único worker estão em
-`backend/README.md`. Não há persistência, frontend ou diagnóstico autônomo.
+`backend/README.md`. A fundação de persistência experimental usa PostgreSQL
+e storage local, com uso explícito por Python; os endpoints atuais continuam
+em memória. Não há frontend ou diagnóstico autônomo.
+
+### Fundação do experimento human-in-the-loop
+
+O novo MVP organiza `ClinicalCase → Image → Evaluation → SegmentationAttempt`.
+Uma avaliação reúne várias tentativas do SAM; o LS clínico manual pertence à
+avaliação. Esta iteração entrega modelos, repositório, storage e migrations,
+sem implementar seleção da máscara validada, extração de features ou classificação.
+Veja [persistência experimental](docs/architecture/experiment_persistence.md).
 
 ---
 
