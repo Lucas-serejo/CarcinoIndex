@@ -57,6 +57,8 @@ se destina a diagnóstico autônomo.
 
 Com o ambiente Python e SAM/CUDA configurados como acima e o Docker Desktop
 em execução, prepare `.env` com `Copy-Item .env.example .env` e ajuste os valores.
+Defina `SAM2_CHECKPOINT_PATH` no `.env` com o caminho do checkpoint local,
+mantido fora do repositório; o caminho fornecido é apenas um exemplo.
 Para o desenvolvimento normal, execute na raiz do repositório:
 
 ```powershell

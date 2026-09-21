@@ -29,6 +29,12 @@ try {
         }
         [Environment]::SetEnvironmentVariable($parts[0].Trim(), $value, 'Process')
     }
+    if ([string]::IsNullOrWhiteSpace($env:SAM2_CHECKPOINT_PATH)) {
+        throw 'SAM2_CHECKPOINT_PATH is missing from .env.'
+    }
+    if (-not (Test-Path -LiteralPath $env:SAM2_CHECKPOINT_PATH -PathType Leaf -ErrorAction SilentlyContinue)) {
+        throw 'SAM2 checkpoint file was not found at the configured path.'
+    }
     Write-Host '[1/4] Loading environment ........ OK'
 
     $python = 'python'
