@@ -53,6 +53,36 @@ JPEG e PNG estáticos são processados somente em memória. A aplicação não
 persiste imagens, máscaras, prompts ou resultados nesses endpoints. O uso é experimental e não
 se destina a diagnóstico autônomo.
 
+## Desenvolvimento no Windows
+
+Com o ambiente Python e SAM/CUDA configurados como acima e o Docker Desktop
+em execução, prepare `.env` com `Copy-Item .env.example .env` e ajuste os valores.
+Defina `SAM2_CHECKPOINT_PATH` no `.env` com o caminho do checkpoint local,
+mantido fora do repositório; o caminho fornecido é apenas um exemplo.
+Para o desenvolvimento normal, execute na raiz do repositório:
+
+```powershell
+.\scripts\dev.ps1
+```
+
+O script carrega `.env` no processo atual, usa `.venv\Scripts\python.exe`
+quando disponível (senão, `python` do PATH), inicia somente PostgreSQL com
+`docker compose up -d --wait postgres` e aplica as migrations existentes com
+`python -m alembic upgrade head`. Ele não cria migrations novas. O carregamento
+aceita `NOME=valor`, aspas externas simples ou duplas, linhas vazias e comentários
+iniciados por `#`; não expande variáveis nem interpreta comentários ao fim da linha.
+
+O Uvicorn roda no foreground, com logs visíveis; Ctrl+C encerra o backend.
+O PostgreSQL continua disponível e pode ser encerrado posteriormente com:
+
+```powershell
+docker compose stop postgres
+```
+
+Docker Desktop continua podendo ser usado para visualizar o container e seus
+logs, e PostgreSQL pode ser inspecionado normalmente pelo VS Code. A inicialização
+manual descrita neste documento continua possível.
+
 ## Persistência experimental
 
 Execute na raiz do repositório. PostgreSQL roda no Docker; backend e SAM
