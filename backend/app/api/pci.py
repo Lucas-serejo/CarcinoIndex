@@ -15,15 +15,29 @@ from backend.app.schemas import (
 )
 
 
-router = APIRouter(prefix="/pci", tags=["pci"])
+router = APIRouter(prefix="/pci", tags=["PCI"])
 
 
-@router.get("/regions", response_model=RegionsResponse)
+@router.get(
+    "/regions",
+    response_model=RegionsResponse,
+    summary="List PCI regions",
+    description="Returns the catalog of 13 PCI regions with their identifiers and names.",
+)
 def list_regions() -> RegionsResponse:
     return RegionsResponse(regions=[asdict(region) for region in PCI_REGIONS])
 
 
-@router.post("/calculate", response_model=PCICompositionResponse)
+@router.post(
+    "/calculate",
+    response_model=PCICompositionResponse,
+    summary="Calculate PCI from clinical LS assessments",
+    description=(
+        "Composes PCI from user-provided clinical LS assessments, using the highest LS per region. "
+        "Returns a subtotal and pending regions; the total is available only when all 13 regions are assessed."
+    ),
+    responses={422: {"description": "Invalid fields, protocol, or LS assessments."}},
+)
 def calculate_pci(payload: PCICalculateRequest) -> PCICompositionResponse:
     try:
         observations = tuple(

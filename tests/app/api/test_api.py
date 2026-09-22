@@ -151,6 +151,28 @@ def segment(
     )
 
 
+def test_openapi_documents_existing_routes(client: TestClient) -> None:
+    response = client.get("/openapi.json")
+    assert response.status_code == 200
+    schema = response.json()
+    assert [tag["name"] for tag in schema["tags"]] == ["Health", "PCI", "Segmentation"]
+    expected = {
+        "/health": ("get", "Health"),
+        "/api/v1/pci/regions": ("get", "PCI"),
+        "/api/v1/pci/calculate": ("post", "PCI"),
+        "/api/v1/segmentations": ("post", "Segmentation"),
+        "/api/v1/evaluations/{evaluation_id}/segmentations": ("post", "Segmentation"),
+    }
+    assert set(expected) <= set(schema["paths"])
+    for path, (method, tag) in expected.items():
+        operation = schema["paths"][path][method]
+        assert operation["tags"] == [tag]
+        assert operation["summary"]
+        assert operation["description"]
+    assert client.get("/docs").status_code == 200
+    assert client.get("/redoc").status_code == 200
+
+
 def test_health_reports_safe_model_status(client: TestClient) -> None:
     response = client.get("/health")
     assert response.status_code == 200
