@@ -79,6 +79,8 @@ async def upload_case_image(
         raise
     except Exception as exc:
         raise APIError(500, "image_creation_failed", "Could not store the image.") from exc
+    finally:
+        await image.close()
 
 
 @router.post(
