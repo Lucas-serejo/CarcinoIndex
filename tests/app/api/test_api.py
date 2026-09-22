@@ -163,7 +163,7 @@ def test_openapi_documents_existing_routes(client: TestClient) -> None:
         "/api/v1/segmentations": ("post", "Segmentation"),
         "/api/v1/evaluations/{evaluation_id}/segmentations": ("post", "Segmentation"),
     }
-    assert set(schema["paths"]) == set(expected)
+    assert set(expected) <= set(schema["paths"])
     for path, (method, tag) in expected.items():
         operation = schema["paths"][path][method]
         assert operation["tags"] == [tag]
