@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from backend.ai.segmentation import SAM2Segmenter
 from backend.app.api import api_router, health_router
 from backend.app.api.errors import install_error_handlers
+from backend.app.api.openapi import API_DESCRIPTION, API_TITLE, API_VERSION, OPENAPI_TAGS
 from backend.app.core.config import Settings
 from backend.app.services.segmentation_service import SegmentationService
 from backend.app.persistence.database import (
@@ -77,12 +78,10 @@ def create_app(
             application.state.segmentation_service = None
 
     application = FastAPI(
-        title="CarcinoIndex API",
-        description=(
-            "Experimental API for assisted SAM 2 segmentation and manual PCI "
-            "composition. It is not intended for autonomous diagnosis."
-        ),
-        version="0.3.0",
+        title=API_TITLE,
+        description=API_DESCRIPTION,
+        openapi_tags=OPENAPI_TAGS,
+        version=API_VERSION,
         lifespan=lifespan,
     )
     application.include_router(health_router)

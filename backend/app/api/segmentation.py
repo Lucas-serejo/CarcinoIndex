@@ -29,21 +29,57 @@ from backend.app.storage.local import LocalStorage
 from backend.app.services.segmentation_service import SegmentationService
 
 
-router = APIRouter(tags=["segmentations"])
+router = APIRouter(tags=["Segmentation"])
+
+BOX_DESCRIPTION = (
+    "JSON array encoded as a string: [x_min, y_min, x_max, y_max], in pixels. "
+    "Use only with prompt_type=box."
+)
+POINTS_DESCRIPTION = (
+    "JSON array of [x, y] points encoded as a string, in pixels. "
+    "Use with prompt_type=points and labels, without box."
+)
+LABELS_DESCRIPTION = (
+    "JSON array encoded as a string with one label per point: "
+    "1 = positive point; 0 = negative point."
+)
 
 
 @router.post(
     "/evaluations/{evaluation_id}/segmentations",
     response_model=PersistedSegmentationResponse,
     status_code=201,
+    summary="Create segmentation attempt",
+    description=(
+        "Uses an existing Evaluation to obtain the laparoscopic image and PCI region. "
+        "The specialist provides a bounding box or point prompts with labels. "
+        "Persists prompt information, the generated mask, and SAM metadata. "
+        "Does not receive clinical LS, calculate PCI, or perform autonomous diagnosis."
+    ),
+    responses={
+        201: {"description": "Segmentation attempt created; prompt, mask, and metadata persisted."},
+        404: {"description": "Evaluation not found."},
+        409: {"description": "Evaluation already finalized; new attempts are not accepted."},
+        422: {"description": "Invalid request fields, prompt, or Evaluation image."},
+        503: {"description": "Segmentation model or persistence unavailable, or CUDA memory exhausted."},
+    },
 )
 async def create_persisted_segmentation(
     evaluation_id: UUID,
     request: Request,
     prompt_type: Annotated[Literal["box", "points"], Form()],
-    box: Annotated[str | None, Form()] = None,
-    points: Annotated[str | None, Form()] = None,
-    labels: Annotated[str | None, Form()] = None,
+    box: Annotated[str | None, Form(
+        description=BOX_DESCRIPTION,
+        examples=["[120, 80, 550, 430]"],
+    )] = None,
+    points: Annotated[str | None, Form(
+        description=POINTS_DESCRIPTION,
+        examples=["[[210, 160], [300, 240]]"],
+    )] = None,
+    labels: Annotated[str | None, Form(
+        description=LABELS_DESCRIPTION,
+        examples=["[1, 0]"],
+    )] = None,
     multimask_output: Annotated[bool, Form()] = True,
     service: SegmentationService = Depends(get_segmentation_service),
     sessions: sessionmaker[Session] = Depends(get_session_factory),
@@ -233,15 +269,39 @@ def build_prompt(
     )
 
 
-@router.post("/segmentations", response_model=SegmentationResponse)
+@router.post(
+    "/segmentations",
+    response_model=SegmentationResponse,
+    summary="Segment image with SAM 2.1",
+    description=(
+        "Accepts a JPEG or PNG image, PCI region, and bounding box or point prompts with labels. "
+        "Returns a mask and metadata without persisting the inputs or results. Clinical LS is "
+        "optional and user-provided, not inferred by the model. Does not perform autonomous diagnosis."
+    ),
+    responses={
+        413: {"description": "Image exceeds configured size or dimension limits."},
+        415: {"description": "Unsupported image format or mismatch with the declared media type."},
+        422: {"description": "Invalid request fields, image, or prompt."},
+        503: {"description": "Segmentation model unavailable or CUDA memory exhausted."},
+    },
+)
 async def create_segmentation(
     request: Request,
     image: Annotated[UploadFile, File()],
     region_id: Annotated[int, Form(ge=0, le=12)],
     prompt_type: Annotated[Literal["box", "points"], Form()],
-    box: Annotated[str | None, Form()] = None,
-    points: Annotated[str | None, Form()] = None,
-    labels: Annotated[str | None, Form()] = None,
+    box: Annotated[str | None, Form(
+        description=BOX_DESCRIPTION,
+        examples=["[120, 80, 550, 430]"],
+    )] = None,
+    points: Annotated[str | None, Form(
+        description=POINTS_DESCRIPTION,
+        examples=["[[210, 160], [300, 240]]"],
+    )] = None,
+    labels: Annotated[str | None, Form(
+        description=LABELS_DESCRIPTION,
+        examples=["[1, 0]"],
+    )] = None,
     multimask_output: Annotated[bool, Form()] = True,
     ls_score: Annotated[int | None, Form(ge=0, le=3)] = None,
     ls_source: Annotated[Literal["user"], Form()] = "user",

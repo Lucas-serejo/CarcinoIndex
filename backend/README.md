@@ -53,6 +53,12 @@ JPEG e PNG estáticos são processados somente em memória. A aplicação não
 persiste imagens, máscaras, prompts ou resultados nesses endpoints. O uso é experimental e não
 se destina a diagnóstico autônomo.
 
+## API documentation
+
+- Swagger UI: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+- ReDoc: [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
+- OpenAPI specification: [http://127.0.0.1:8000/openapi.json](http://127.0.0.1:8000/openapi.json)
+
 ## Desenvolvimento no Windows
 
 Com o ambiente Python e SAM/CUDA configurados como acima e o Docker Desktop
