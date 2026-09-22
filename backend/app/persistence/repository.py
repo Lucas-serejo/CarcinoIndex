@@ -20,6 +20,12 @@ class ExperimentRepository:
         self.session.flush()
         return case
 
+    def get_case(self, case_id: UUID) -> ClinicalCase | None:
+        return self.session.get(ClinicalCase, case_id)
+
+    def get_image(self, image_id: UUID) -> Image | None:
+        return self.session.get(Image, image_id)
+
     def add_image(self, *, case_id: UUID, storage_path: str,
                   width: int, height: int, sha256: str) -> Image:
         image = Image(case_id=case_id,

@@ -149,8 +149,10 @@ curl.exe -X POST "http://127.0.0.1:8000/api/v1/evaluations/UUID/segmentations" `
   -F 'prompt_type=box' -F 'box=[2,2,25,20]' -F 'multimask_output=false'
 ```
 
-Prepare ClinicalCase, Image e Evaluation por Python, conforme o documento de
-persistência. A região e a imagem vêm da Evaluation. A resposta `201` contém
+Create ClinicalCase, Image, and draft Evaluation through the HTTP endpoints in
+[the Swagger lifecycle guide](../docs/experiment_lifecycle_api.md). The Evaluation supplies the image and PCI region.
+
+A resposta `201` contém
 `attempt_id`, `evaluation_id`, `sequence_number`, `region`, `metadata` e
 `mask` (PNG Base64, largura e altura). Não há LS ou cálculo de PCI nessa rota.
 Evaluation inexistente retorna `404`; finalized retorna `409`; prompt inválido
