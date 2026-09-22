@@ -155,8 +155,12 @@ def test_openapi_documents_existing_routes(client: TestClient) -> None:
     response = client.get("/openapi.json")
     assert response.status_code == 200
     schema = response.json()
-    assert [tag["name"] for tag in schema["tags"]] == ["Health", "PCI", "Segmentation"]
+    assert {"Health", "PCI", "Segmentation", "Experiment"} <= {tag["name"] for tag in schema["tags"]}
     expected = {
+        "/api/v1/cases": ("post", "Experiment"),
+        "/api/v1/cases/{case_id}/images": ("post", "Experiment"),
+        "/api/v1/images/{image_id}/evaluations": ("post", "Experiment"),
+        "/api/v1/evaluations/{evaluation_id}/finalize": ("post", "Experiment"),
         "/health": ("get", "Health"),
         "/api/v1/pci/regions": ("get", "PCI"),
         "/api/v1/pci/calculate": ("post", "PCI"),

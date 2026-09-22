@@ -22,6 +22,14 @@ async def decode_image_upload(
     upload: UploadFile,
     settings: Settings,
 ) -> np.ndarray:
+    _, pixels, _ = await validate_image_upload(upload, settings)
+    return pixels
+
+
+async def validate_image_upload(
+    upload: UploadFile, settings: Settings,
+) -> tuple[bytes, np.ndarray, str]:
+    """Return original validated bytes, RGB pixels, and the verified format."""
     expected_format = SUPPORTED_MEDIA_TYPES.get(upload.content_type or "")
     if expected_format is None:
         raise APIError(
@@ -31,7 +39,8 @@ async def decode_image_upload(
         )
 
     content = await upload.read(settings.max_upload_bytes + 1)
-    return decode_image_bytes(content, settings, expected_format=expected_format)
+    pixels = decode_image_bytes(content, settings, expected_format=expected_format)
+    return content, pixels, expected_format
 
 
 def decode_image_bytes(

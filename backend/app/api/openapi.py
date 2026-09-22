@@ -10,6 +10,11 @@ API_DESCRIPTION = (
     "The system is not intended for autonomous diagnosis."
 )
 OPENAPI_TAGS = [
+    {
+        "name": "Experiment",
+        "description": "Management of clinical cases, laparoscopic images, and human-in-the-loop "
+                       "evaluations used in the experimental workflow.",
+    },
     {"name": "Health", "description": "API and segmentation model health information."},
     {"name": "PCI", "description": "PCI regions and manual PCI composition."},
     {
