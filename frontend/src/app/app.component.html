@@ -1,0 +1,172 @@
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="./" aria-label="CarcinoIndex home">
+      <span class="brand-mark" aria-hidden="true">ci</span>
+      <span>Carcino<span class="brand-accent">Index</span></span>
+    </a>
+    <span class="prototype-label">Academic research prototype</span>
+  </div>
+</header>
+
+<main id="main" tabindex="-1">
+  <div class="page-label">
+    <span aria-hidden="true"></span> Research workspace
+  </div>
+  <div class="workspace">
+    <section class="introduction" aria-labelledby="intro-title">
+      <p class="eyebrow">Human-guided. Research-focused.</p>
+      <h1 id="intro-title">A clearer view.<br />A considered assessment.</h1>
+      <p class="intro-copy">
+        Human-guided segmentation of peritoneal lesions in laparoscopic images,
+        with computational support for Peritoneal Cancer Index (PCI) assessment.
+      </p>
+      <div class="start-area">
+        <button
+          class="primary-button"
+          disabled
+          aria-describedby="workflow-note"
+        >
+          Start evaluation <span aria-hidden="true">&rarr;</span>
+        </button>
+        <p id="workflow-note">
+          The experimental workflow will be introduced in the next iteration.
+        </p>
+      </div>
+      <div class="research-note">
+        <span class="note-label">Built around expert judgment</span>
+        <p>
+          SAM 2.1 assists segmentation. The researcher guides and reviews the
+          result; clinical interpretation remains with the specialist.
+        </p>
+      </div>
+    </section>
+
+    <aside class="status-panel" aria-labelledby="status-title">
+      <div class="panel-heading">
+        <h2 id="status-title">System status</h2>
+        <span class="eyebrow">Live check</span>
+      </div>
+      @let state = health();
+      <div
+        class="health-details"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        [attr.aria-busy]="state.status === 'loading'"
+      >
+        <dl>
+          <div class="status-row">
+            <dt>Backend</dt>
+            <dd
+              class="status-value"
+              [class.ready]="state.status === 'success'"
+              [class.unavailable]="state.status === 'error'"
+            >
+              <span class="status-dot" aria-hidden="true"></span>
+              @switch (state.status) {
+                @case ("loading") {
+                  Checking…
+                }
+                @case ("success") {
+                  Ready
+                }
+                @case ("error") {
+                  Unavailable
+                }
+              }
+            </dd>
+          </div>
+          <div class="model-row">
+            <dt>Segmentation model</dt>
+            <dd class="model-name">
+              {{
+                state.status === "success"
+                  ? modelName(state.response.model.name)
+                  : "Awaiting model information"
+              }}
+            </dd>
+            <dd class="model-detail">
+              @if (state.status === "success") {
+                {{ state.response.model.loaded ? "Loaded" : "Not loaded" }}
+                <span aria-hidden="true"> · </span
+                >{{ state.response.model.device }}
+                <span aria-hidden="true"> · </span
+                >{{ state.response.model.dtype }}
+              } @else {
+                {{
+                  state.status === "loading"
+                    ? "Connecting to the research backend"
+                    : "Model status could not be checked"
+                }}
+              }
+            </dd>
+          </div>
+        </dl>
+        <p
+          class="health-message"
+          [class.unavailable]="state.status === 'error'"
+        >
+          @switch (state.status) {
+            @case ("loading") {
+              Checking backend and model availability.
+            }
+            @case ("success") {
+              Availability indicates technical status, not clinical validation.
+            }
+            @case ("error") {
+              {{ state.message }}
+            }
+          }
+        </p>
+      </div>
+      <button
+        class="refresh-button"
+        (click)="checkHealth()"
+        [disabled]="state.status === 'loading'"
+      >
+        {{ state.status === "error" ? "Try again" : "Refresh status" }}
+        <span aria-hidden="true">↻</span>
+      </button>
+    </aside>
+  </div>
+
+  <section class="approach" aria-labelledby="approach-title">
+    <div class="approach-heading">
+      <h2 id="approach-title">The research approach</h2>
+      <span>Human expertise at every step</span>
+    </div>
+    <ol>
+      <li>
+        <span class="step-number" aria-hidden="true">01</span>
+        <h3>Guide the segmentation</h3>
+        <p>
+          Explore SAM 2.1 assistance for segmenting specialist-indicated
+          peritoneal lesions in laparoscopic images.
+        </p>
+      </li>
+      <li>
+        <span class="step-number" aria-hidden="true">02</span>
+        <h3>Review with intention</h3>
+        <p>
+          Keep human review central to interpreting and validating segmentation
+          results.
+        </p>
+      </li>
+      <li>
+        <span class="step-number" aria-hidden="true">03</span>
+        <h3>Support PCI assessment</h3>
+        <p>
+          Study computational support for structured assessment, informed by
+          specialist judgment.
+        </p>
+      </li>
+    </ol>
+  </section>
+</main>
+
+<footer>
+  <span
+    >CarcinoIndex <span aria-hidden="true">/</span> Academic TCC project</span
+  ><span>Research prototype · Not for autonomous diagnosis</span>
+</footer>
