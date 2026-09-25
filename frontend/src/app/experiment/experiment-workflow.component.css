@@ -1,0 +1,27 @@
+:host { display: block; }
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; list-style: none; padding: 0 0 24px; margin: 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.steps li { color: var(--muted); }
+.steps [aria-current] { color: var(--accent); font-weight: 650; }
+.steps span { display: block; font-size: 11px; font-weight: 400; }
+.workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; padding-top: 30px; align-items: start; }
+h1 { font-size: 32px; font-weight: 550; letter-spacing: -1px; margin: 0 0 12px; }
+h2 { font-size: 14px; margin: 0 0 20px; }
+.intro, .hint, dt { color: var(--muted); }
+.hint { font-size: 12px; line-height: 1.7; margin: 8px 0 0; }
+#privacy-note { border-left: 2px solid var(--border); padding-left: 16px; margin-block: 20px 28px; }
+.field { margin-bottom: 22px; }
+label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+input, select { width: 100%; min-width: 0; padding: 11px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); font: inherit; }
+input:disabled, select:disabled { background: var(--background); color: var(--muted); }
+button { padding: 12px 18px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--accent); cursor: pointer; }
+.primary-button { background: var(--accent); color: white; border-color: var(--accent); font-weight: 600; }
+button:disabled { opacity: .7; cursor: not-allowed; }
+.error { color: var(--danger); overflow-wrap: anywhere; }
+.preview { padding: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; }
+.preview img { display: block; width: 100%; max-height: 500px; object-fit: contain; }
+.placeholder { display: grid; place-items: center; min-height: 240px; padding: 24px; background: var(--background); color: var(--muted); text-align: center; font-size: 13px; }
+dl { margin-block: 28px; }
+dt { font-size: 12px; }
+dd { margin: 4px 0 18px; overflow-wrap: anywhere; }
+.session-note { margin-top: 24px; }
+@media (max-width: 700px) { .workspace { grid-template-columns: 1fr; gap: 28px; } .steps { gap: 12px; font-size: 11px; } }

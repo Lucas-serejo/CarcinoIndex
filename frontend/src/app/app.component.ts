@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   DestroyRef,
   inject,
   signal,
@@ -8,6 +9,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ExperimentApiService } from './api/experiment-api.service';
 import { HealthResponse } from './api/api.models';
+import { ExperimentWorkflowComponent } from './experiment/experiment-workflow.component';
 
 type HealthState =
   | { status: 'loading' }
@@ -16,6 +18,7 @@ type HealthState =
 
 @Component({
   selector: 'app-root',
+  imports: [ExperimentWorkflowComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -24,6 +27,15 @@ export class App {
   private readonly api = inject(ExperimentApiService);
   private readonly destroyRef = inject(DestroyRef);
   readonly health = signal<HealthState>({ status: 'loading' });
+  readonly screen = signal<'overview' | 'workflow'>('overview');
+  readonly canStart = computed(() => {
+    const health = this.health();
+    return health.status === 'success' && health.response.model.loaded;
+  });
+
+  startEvaluation(): void {
+    if (this.canStart()) this.screen.set('workflow');
+  }
 
   constructor() {
     this.checkHealth();
