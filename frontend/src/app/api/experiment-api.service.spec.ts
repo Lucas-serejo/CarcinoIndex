@@ -25,6 +25,58 @@ describe('ExperimentApiService', () => {
     vi.useRealTimers();
   });
 
+  it('loads PCI regions from the relative backend endpoint', async () => {
+    const result = firstValueFrom(service.getRegions());
+    const request = http.expectOne('/api/v1/pci/regions');
+    expect(request.request.method).toBe('GET');
+    request.flush({ regions: [] });
+    expect(await result).toEqual({ regions: [] });
+  });
+
+  it('posts only the case contract', async () => {
+    const body = { anonymous_patient_code: 'PATIENT-001' };
+    const result = firstValueFrom(service.createCase(body));
+    const request = http.expectOne('/api/v1/cases');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual(body);
+    request.flush({ case_id: 'case-1', ...body, created_at: '2026-09-25T12:00:00Z' });
+    expect((await result).case_id).toBe('case-1');
+  });
+
+  it('uploads the exact selected File without forcing a multipart header', async () => {
+    const file = new File(['image'], 'private-name.png', { type: 'image/png' });
+    const result = firstValueFrom(service.uploadCaseImage('case-1', file));
+    const request = http.expectOne('/api/v1/cases/case-1/images');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toBeInstanceOf(FormData);
+    const body = request.request.body as FormData;
+    expect([...body.keys()]).toEqual(['image']);
+    expect(body.get('image')).toBe(file);
+    expect(request.request.headers.has('Content-Type')).toBe(false);
+    request.flush({ image_id: 'image-1' });
+    expect((await result).image_id).toBe('image-1');
+  });
+
+  it('posts only region and annotator for a draft evaluation', async () => {
+    const body = { pci_region_id: 0, annotator_code: 'MED01' };
+    const result = firstValueFrom(service.createEvaluation('image-1', body));
+    const request = http.expectOne('/api/v1/images/image-1/evaluations');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual(body);
+    request.flush({ evaluation_id: 'evaluation-1', ...body });
+    expect((await result).evaluation_id).toBe('evaluation-1');
+  });
+
+  it('uses safe envelope mapping for lifecycle errors too', async () => {
+    const result = firstValueFrom(service.createCase({ anonymous_patient_code: 'P01' }));
+    const assertion = expect(result).rejects.toThrow('Could not create the clinical case.');
+    http.expectOne('/api/v1/cases').flush(
+      { error: { code: 'case_creation_failed', message: 'Could not create the clinical case.' } },
+      { status: 500, statusText: 'Server Error' },
+    );
+    await assertion;
+  });
+
   it('requests the relative health endpoint and preserves the backend response', async () => {
     const response: HealthResponse = {
       status: 'ok',

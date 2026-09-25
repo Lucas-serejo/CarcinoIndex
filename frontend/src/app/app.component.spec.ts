@@ -70,6 +70,7 @@ describe('Research application shell', () => {
       element.querySelector('[role="status"]')?.getAttribute('aria-busy'),
     ).toBe('false');
     expect(element.textContent).toContain('not clinical validation');
+    expect(element.querySelector<HTMLButtonElement>('.primary-button')?.disabled).toBe(false);
   });
 
   it('distinguishes a reachable backend from a model that is not loaded', () => {
@@ -83,6 +84,7 @@ describe('Research application shell', () => {
     expect(element.querySelector('.model-detail')?.textContent).toContain(
       'Not loaded',
     );
+    expect(element.querySelector<HTMLButtonElement>('.primary-button')?.disabled).toBe(true);
   });
 
   it('recovers from a connection failure through the retry button', () => {
@@ -90,6 +92,7 @@ describe('Research application shell', () => {
     fixture.detectChanges();
     expect(element.textContent).toContain('Unavailable');
     expect(element.textContent).toContain('Unable to reach the backend');
+    expect(element.querySelector<HTMLButtonElement>('.primary-button')?.disabled).toBe(true);
     const retry = element.querySelector<HTMLButtonElement>('.refresh-button');
     expect(retry?.textContent).toContain('Try again');
     retry?.click();
@@ -154,5 +157,17 @@ describe('Research application shell', () => {
     const request = http.expectOne('/health');
     fixture.destroy();
     expect(request.cancelled).toBe(true);
+  });
+
+  it('opens the workflow while preserving the application identity', () => {
+    http.expectOne('/health').flush(healthy);
+    fixture.detectChanges();
+    element.querySelector<HTMLButtonElement>('.primary-button')?.click();
+    fixture.detectChanges();
+    expect(element.querySelector('app-experiment-workflow')).not.toBeNull();
+    expect(element.textContent).toContain('Experiment setup');
+    expect(element.querySelector('header')?.textContent).toContain('CarcinoIndex');
+    expect(element.querySelector('footer')).not.toBeNull();
+    http.expectOne('/api/v1/pci/regions').flush({ regions: [] });
   });
 });

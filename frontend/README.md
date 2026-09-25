@@ -1,8 +1,43 @@
 # CarcinoIndex frontend
 
 Angular 21 standalone application shell for the academic research prototype.
-This iteration introduces system status and project context only. Start evaluation
-is disabled; no case creation, upload, segmentation, or assessment UI is implemented.
+Experiment Setup is implemented alongside system status and project context.
+Start evaluation becomes available after a successful health check with the model loaded.
+Segmentation interaction and clinical assessment are not implemented yet.
+
+## Experiment Setup
+
+The root App switches locally between overview and workflow without a router.
+One `ExperimentWorkflowComponent` owns the typed Reactive Form, PCI loading,
+local preview, server responses, progress, errors, and completion.
+
+Enter pseudonymous patient and annotator codes (required, trimmed, at most 128
+characters), select a JPEG or PNG, and choose a PCI region. Region labels come
+from `GET /api/v1/pci/regions`; failed or empty responses offer retry and block
+submission. The backend remains authoritative for image format, byte and dimension limits.
+
+Submission runs Case -> Image -> Evaluation using the existing backend endpoints:
+
+1. `POST /api/v1/cases` creates the clinical case.
+2. `POST /api/v1/cases/{case_id}/images` uploads the selected File as multipart `image`.
+3. `POST /api/v1/images/{image_id}/evaluations` creates a draft with region and annotator.
+
+Successful responses stay in component memory. Retry skips completed stages:
+an upload failure reuses the case; an evaluation failure reuses both case and image.
+Patient code locks after case creation, image selection locks after upload, and
+region/annotator stay editable until evaluation creation. All inputs and duplicate
+submission are blocked while requests run. Completion displays safe summary information
+and an unavailable Segmentation workspace action; no segmentation requests are made.
+
+The local preview uses an object URL, never base64. Original filenames are not
+displayed. Replacing an image revokes its previous URL. The selected File and active
+URL remain in memory after completion for the future segmentation workspace;
+the URL is revoked when the component is destroyed.
+
+Refresh or leaving the page loses workflow state. No browser persistence is used.
+Server records already created remain on the backend. Retry only prevents repeating
+stages whose successful responses were received; a lost response after a server commit
+cannot be deduplicated without backend idempotency, which is outside this iteration.
 
 ## Prerequisites and installation
 
@@ -49,6 +84,8 @@ npm run build
 using Angular TestBed and HttpTestingController; no browser installation or live API
 is needed. Tests cover rendering, health transitions, unloaded models, retry,
 relative requests, API errors, timeout, safe text rendering, and request cleanup.
+Workflow tests also cover validation, backend PCI labels, previews and URL cleanup,
+ordered lifecycle requests, partial retries, progressive locking, and duplicate submission.
 
 Production assets are written to `dist/carcinoindex/browser/`. The development proxy
 is not included in that build. Production hosting must route `/health` and `/api/`
@@ -62,6 +99,8 @@ src/app/
     api.models.ts
     experiment-api.service.ts
     experiment-api.service.spec.ts
+  experiment/
+    experiment-workflow.component.ts / .html / .css / .spec.ts
   app.component.ts / .html / .css / .spec.ts
   app.config.ts
 ```
@@ -71,11 +110,12 @@ The API service uses HttpClient and handles the backend's `{ error: { code, mess
 envelope locally. There are no routes or unused future feature folders.
 Global CSS contains a small palette and baseline styles; layout belongs to the shell.
 
-Runtime dependencies: Angular common/core/compiler/platform-browser, RxJS and tslib.
+Runtime dependencies: Angular common/core/compiler/platform-browser/forms, RxJS and tslib.
 Development dependencies: Angular CLI/build/compiler-cli, TypeScript, Vitest and jsdom.
-Forms, routing packages, UI libraries and state-management frameworks are not installed.
-No external assets, analytics, telemetry, browser storage, or patient data collection
-are introduced. Angular CLI analytics are explicitly disabled in `angular.json`.
+Routing packages, UI libraries and state-management frameworks are not installed.
+No external assets, analytics, telemetry, browser storage, or direct patient identifiers
+are introduced. Only pseudonymous codes are collected. Angular CLI analytics are explicitly
+disabled in `angular.json`.
 
 The dedicated `.github/workflows/frontend.yml` installs with `npm ci`, runs unit tests,
 and builds with Node 24. The backend CI workflow remains independent.

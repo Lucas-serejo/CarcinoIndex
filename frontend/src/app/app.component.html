@@ -10,6 +10,9 @@
 </header>
 
 <main id="main" tabindex="-1">
+  @if (screen() === 'workflow') {
+    <app-experiment-workflow />
+  } @else {
   <div class="page-label">
     <span aria-hidden="true"></span> Research workspace
   </div>
@@ -24,13 +27,20 @@
       <div class="start-area">
         <button
           class="primary-button"
-          disabled
+          [disabled]="!canStart()"
+          (click)="startEvaluation()"
           aria-describedby="workflow-note"
         >
           Start evaluation <span aria-hidden="true">&rarr;</span>
         </button>
         <p id="workflow-note">
-          The experimental workflow will be introduced in the next iteration.
+          @if (canStart()) {
+            Prepare a pseudonymous case, an image, and a PCI region for evaluation.
+          } @else if (health().status === 'success') {
+            The segmentation model must be loaded before starting an evaluation.
+          } @else {
+            A successful backend and model availability check is required to start.
+          }
         </p>
       </div>
       <div class="research-note">
@@ -163,6 +173,7 @@
       </li>
     </ol>
   </section>
+  }
 </main>
 
 <footer>

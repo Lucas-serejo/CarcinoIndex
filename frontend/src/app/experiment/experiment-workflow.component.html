@@ -1,0 +1,90 @@
+<ol class="steps" aria-label="Evaluation stages">
+  <li [attr.aria-current]="evaluation() ? null : 'step'">01 Setup <span>{{ evaluation() ? 'Complete' : 'Active' }}</span></li>
+  <li>02 Segmentation <span>Upcoming</span></li>
+  <li>03 Clinical assessment <span>Upcoming</span></li>
+</ol>
+<div class="workspace">
+  <section aria-labelledby="setup-title">
+    @if (evaluation(); as ready) {
+      <h1 id="setup-title">Evaluation ready</h1>
+      <p role="status">The image has been stored and the Evaluation has been created.</p>
+      <dl>
+        <dt>PCI region</dt><dd>{{ regionName(ready.pci_region_id) }}</dd>
+        <dt>Status</dt><dd>{{ ready.status === 'draft' ? 'Draft' : 'Finalized' }}</dd>
+        <dt>Image dimensions</dt><dd>{{ image()?.width }} × {{ image()?.height }} pixels</dd>
+        <dt>Pseudonymous annotator code</dt><dd>{{ ready.annotator_code }}</dd>
+      </dl>
+      <button type="button" disabled aria-describedby="next-step">Segmentation workspace</button>
+      <p id="next-step" class="hint">Segmentation interaction is the next application stage and is not implemented yet.</p>
+    } @else {
+      <h1 id="setup-title">Experiment setup</h1>
+      <p class="intro">Prepare an image for specialist-guided evaluation.</p>
+      <p id="privacy-note" class="hint">Use pseudonymous patient and annotator identifiers only. Do not enter names or other personal information. Choose an image without identifying labels.</p>
+      <form [formGroup]="form" (ngSubmit)="submit()" [attr.aria-busy]="!!stage()">
+        <div class="field">
+          <label for="patient-code">Pseudonymous patient code</label>
+          <input id="patient-code" formControlName="patientCode" autocomplete="off" aria-describedby="privacy-note patient-help" [attr.aria-invalid]="form.controls.patientCode.touched && form.controls.patientCode.invalid" />
+          <p id="patient-help" class="hint" [class.error]="form.controls.patientCode.touched && form.controls.patientCode.invalid">
+            @if (clinicalCase()) { Locked: clinical case created. }
+            @else if (form.controls.patientCode.touched && form.controls.patientCode.invalid) { Enter a nonblank pseudonymous code of at most 128 characters after trimming spaces. }
+            @else { Required; 1–128 characters after trimming spaces. }
+          </p>
+        </div>
+        <div class="field">
+          <label for="annotator-code">Annotator code</label>
+          <input id="annotator-code" formControlName="annotatorCode" autocomplete="off" aria-describedby="privacy-note annotator-help" [attr.aria-invalid]="form.controls.annotatorCode.touched && form.controls.annotatorCode.invalid" />
+          <p id="annotator-help" class="hint" [class.error]="form.controls.annotatorCode.touched && form.controls.annotatorCode.invalid">
+            @if (form.controls.annotatorCode.touched && form.controls.annotatorCode.invalid) { Enter a nonblank pseudonymous code of at most 128 characters after trimming spaces. }
+            @else { Required; 1–128 characters after trimming spaces. }
+          </p>
+        </div>
+        <div class="field">
+          <label for="pci-region">PCI region</label>
+          <select id="pci-region" formControlName="regionId" aria-describedby="region-help" [attr.aria-invalid]="form.controls.regionId.touched && form.controls.regionId.invalid">
+            <option [ngValue]="null">Choose a PCI region</option>
+            @for (region of regions(); track region.region_id) {
+              <option [ngValue]="region.region_id">{{ region.region_id }} — {{ region.display_name }}</option>
+            }
+          </select>
+          <p id="region-help" class="hint" role="status">
+            @switch (regionState()) {
+              @case ('loading') { Loading PCI regions… }
+              @case ('error') { {{ regionError() }} }
+              @case ('success') { Required. Select the region indicated by the specialist. }
+            }
+          </p>
+          @if (regionState() === 'error') {
+            <button type="button" (click)="loadRegions()">Retry region loading</button>
+          }
+        </div>
+        <div class="field">
+          <label for="laparoscopic-image">Laparoscopic image</label>
+          <input id="laparoscopic-image" type="file" accept="image/jpeg,image/png" (change)="selectImage($event)" [disabled]="!!stage() || !!image()" aria-describedby="image-help" [attr.aria-invalid]="form.controls.file.touched && form.controls.file.invalid" />
+          <p id="image-help" class="hint" [class.error]="form.controls.file.touched && form.controls.file.invalid">
+            @if (image()) { Locked: image stored. }
+            @else if (imageError()) { {{ imageError() }} }
+            @else if (previewUrl()) { Image selected. Choose another file to replace it. }
+            @else { Required. Choose a JPEG or PNG. The backend validates the image. }
+          </p>
+        </div>
+        <p role="status" aria-live="polite">{{ stage() ? stage() + '…' : '' }}</p>
+        @if (failure(); as error) {
+          <p role="alert" class="error">{{ error.stage }} failed. {{ error.message }} Successful earlier stages are preserved; retry continues from this stage.</p>
+        }
+        <button class="primary-button" type="submit" [disabled]="!!stage() || regionState() !== 'success'">
+          {{ stage() ? 'Working…' : failure() ? 'Retry' : 'Start evaluation' }}
+        </button>
+      </form>
+    }
+    <p class="hint session-note">Keep this page open. Refreshing or leaving it loses the workflow state held in browser memory.</p>
+  </section>
+  <aside class="preview" aria-labelledby="preview-title">
+    <h2 id="preview-title">Image preview</h2>
+    @if (previewUrl(); as url) {
+      <img [src]="url" alt="Selected laparoscopic image for specialist review" />
+    } @else {
+      <p class="placeholder">Choose a laparoscopic image to preview it here.</p>
+    }
+    <p class="hint">The preview stays local in browser memory. Submission uploads the selected image to the research backend.</p>
+  </aside>
+</div>
