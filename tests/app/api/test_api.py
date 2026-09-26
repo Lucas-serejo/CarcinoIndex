@@ -160,6 +160,8 @@ def test_openapi_documents_existing_routes(client: TestClient) -> None:
         "/api/v1/cases": ("post", "Experiment"),
         "/api/v1/cases/{case_id}/images": ("post", "Experiment"),
         "/api/v1/images/{image_id}/evaluations": ("post", "Experiment"),
+        "/api/v1/images/{image_id}/content": ("get", "Experiment"),
+        "/api/v1/evaluations/{evaluation_id}": ("get", "Experiment"),
         "/api/v1/evaluations/{evaluation_id}/finalize": ("post", "Experiment"),
         "/health": ("get", "Health"),
         "/api/v1/pci/regions": ("get", "PCI"),
@@ -173,6 +175,14 @@ def test_openapi_documents_existing_routes(client: TestClient) -> None:
         assert operation["tags"] == [tag]
         assert operation["summary"]
         assert operation["description"]
+    image_responses = schema["paths"]["/api/v1/images/{image_id}/content"]["get"]["responses"]
+    assert {"200", "404", "500"} <= set(image_responses)
+    assert set(image_responses["200"]["content"]) == {"image/png", "image/jpeg"}
+    evaluation_responses = schema["paths"]["/api/v1/evaluations/{evaluation_id}"]["get"]["responses"]
+    assert {"200", "404"} <= set(evaluation_responses)
+    assert evaluation_responses["200"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/EvaluationResponse",
+    }
     assert client.get("/docs").status_code == 200
     assert client.get("/redoc").status_code == 200
 
