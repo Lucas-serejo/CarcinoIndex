@@ -26,7 +26,7 @@ All paths below use the default `/api/v1` prefix.
    The `200` response contains the finalized evaluation and its timestamp.
 6. Further segmentation attempts or a second finalization return `409`.
 
-Both evaluation responses include `evaluation_id`, `image_id`, `pci_region_id`,
+All evaluation responses include `evaluation_id`, `image_id`, `pci_region_id`,
 `annotator_code`, `status`, `clinical_ls`, `annotator_confidence`, `created_at`, and
 `finalized_at`. Missing parent records return `404`; invalid fields return `422`.
 
@@ -34,6 +34,38 @@ Finalization means the specialist finished the evaluation and supplied clinical
 LS. It does not accept, validate, or select a reference mask. No segmentation
 attempt is required before finalization. The system performs no autonomous
 diagnosis or automatic LS inference.
+
+## Retrieve persisted resources
+
+`GET /evaluations/{evaluation_id}` returns `200` with the existing evaluation
+fields listed above, for either a draft or finalized evaluation. Finalized
+responses include the persisted clinical LS, optional confidence, and finalization
+timestamp. No nested resources or segmentation attempts are included.
+A missing evaluation returns `404` with
+`{"error":{"code":"evaluation_not_found","message":"Evaluation not found."}}`.
+
+`GET /images/{image_id}/content` returns `200` with the exact original validated
+JPEG or PNG bytes for the persisted experimental workflow. It performs no resizing,
+recompression, transcoding, or base64 conversion. Content-Type is `image/png` for
+`.png` storage keys and `image/jpeg` for `.jpg` or `.jpeg` keys. These are internal,
+application-generated keys; filenames, storage keys, and filesystem paths are not
+exposed through response metadata. No Content-Disposition filename is set.
+Successful image responses carry `Cache-Control: no-store` and
+`X-Content-Type-Options: nosniff`, locally scoped to this endpoint.
+
+A missing image database record returns `404` with
+`{"error":{"code":"image_not_found","message":"Image not found."}}`.
+If the record exists but its content is missing, inaccessible, or has an invalid
+internal storage key, the response is `500` with
+`{"error":{"code":"image_content_unavailable","message":"Stored image content is unavailable."}}`.
+Storage errors expose no keys, paths, or exception details. The database session
+closes before `LocalStorage.read()` retrieves the bytes.
+
+These operations reuse the current schema and require no migration. They support
+retrieval from persisted state without retaining the original browser File.
+Segmentation-attempt retrieval and frontend resume behavior remain outside this
+iteration. Image bytes are read into memory; streaming, range requests, retries,
+and storage repair are not implemented.
 
 ## Image storage and transactions
 

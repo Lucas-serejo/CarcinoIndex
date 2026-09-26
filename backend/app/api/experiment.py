@@ -3,7 +3,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Request, Response, UploadFile
 from sqlalchemy.orm import Session, sessionmaker
 
 from backend.app.api.dependencies import get_session_factory, get_storage
@@ -83,6 +83,46 @@ async def upload_case_image(
         await image.close()
 
 
+@router.get(
+    "/images/{image_id}/content", response_class=Response,
+    summary="Get persisted image content",
+    description="Return the original validated JPEG/PNG bytes for the persisted experimental workflow. "
+                "Storage paths and original filenames are not exposed.",
+    responses={
+        200: {"content": {
+            "image/png": {"schema": {"type": "string", "format": "binary"}},
+            "image/jpeg": {"schema": {"type": "string", "format": "binary"}},
+        }},
+        404: {"description": "image_not_found: Image not found."},
+        500: {"description": "image_content_unavailable: Stored image content is unavailable. "
+                             "No storage paths or exception details are returned."},
+    },
+)
+def get_image_content(
+    image_id: UUID,
+    sessions: sessionmaker[Session] = Depends(get_session_factory),
+    storage: LocalStorage = Depends(get_storage),
+) -> Response:
+    with sessions() as session:
+        record = ExperimentRepository(session).get_image(image_id)
+        if record is None:
+            raise APIError(404, "image_not_found", "Image not found.")
+        storage_key = record.storage_path
+
+    # Release the database session before reading persisted bytes.
+    try:
+        content = storage.read(storage_key)
+        media_type = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg"}.get(
+            storage_key.rsplit(".", 1)[-1],
+        )
+        if media_type is None:
+            raise ValueError("Unsupported stored image suffix.")
+    except (OSError, ValueError) as exc:
+        raise APIError(500, "image_content_unavailable", "Stored image content is unavailable.") from exc
+    return Response(content=content, media_type=media_type,
+                    headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
+
+
 @router.post(
     "/images/{image_id}/evaluations", response_model=EvaluationResponse, status_code=201,
     summary="Create image evaluation",
@@ -106,6 +146,23 @@ def create_evaluation(
         raise
     except Exception as exc:
         raise APIError(500, "evaluation_creation_failed", "Could not create the evaluation.") from exc
+
+
+@router.get(
+    "/evaluations/{evaluation_id}", response_model=EvaluationResponse,
+    summary="Get evaluation",
+    description="Retrieve the persisted draft or finalized evaluation using its existing API-safe contract.",
+    responses={404: {"description": "evaluation_not_found: Evaluation not found."}},
+)
+def get_evaluation(
+    evaluation_id: UUID,
+    sessions: sessionmaker[Session] = Depends(get_session_factory),
+) -> EvaluationResponse:
+    with sessions() as session:
+        evaluation = ExperimentRepository(session).get_evaluation(evaluation_id)
+        if evaluation is None:
+            raise APIError(404, "evaluation_not_found", "Evaluation not found.")
+        return EvaluationResponse.model_validate(evaluation)
 
 
 @router.post(

@@ -152,6 +152,14 @@ curl.exe -X POST "http://127.0.0.1:8000/api/v1/evaluations/UUID/segmentations" `
 Create ClinicalCase, Image, and draft Evaluation through the HTTP endpoints in
 [the Swagger lifecycle guide](../docs/experiment_lifecycle_api.md). The Evaluation supplies the image and PCI region.
 
+Persisted workflows also support `GET /api/v1/evaluations/{evaluation_id}` for
+draft or finalized evaluation state and `GET /api/v1/images/{image_id}/content`
+for the original validated image bytes. Image content uses the correct JPEG/PNG
+media type, with `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`.
+Response metadata exposes no filenames or storage paths. Missing records return
+`404`; unavailable content for an existing image returns a safe
+`500 image_content_unavailable`. See the lifecycle guide for the error envelopes.
+
 A resposta `201` contém
 `attempt_id`, `evaluation_id`, `sequence_number`, `region`, `metadata` e
 `mask` (PNG Base64, largura e altura). Não há LS ou cálculo de PCI nessa rota.

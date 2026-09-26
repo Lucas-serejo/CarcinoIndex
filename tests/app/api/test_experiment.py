@@ -216,6 +216,119 @@ def test_invalid_finalization_keeps_draft(api, body):
         assert session.get(Evaluation, UUID(eid)).status == "draft"
 
 
+@pytest.mark.parametrize("finalized", [False, True])
+def test_get_persisted_evaluation(api, finalized):
+    expected = create_evaluation(api)
+    eid = expected["evaluation_id"]
+    if finalized:
+        result = api.client.post(f"/api/v1/evaluations/{eid}/finalize",
+                                 json={"clinical_ls": 2, "annotator_confidence": 0.9})
+        assert result.status_code == 200
+        expected = result.json()
+    response = api.client.get(f"/api/v1/evaluations/{eid}")
+    assert response.status_code == 200
+    assert response.json() == expected
+    assert set(response.json()) == {
+        "evaluation_id", "image_id", "pci_region_id", "annotator_code", "status",
+        "clinical_ls", "annotator_confidence", "created_at", "finalized_at",
+    }
+    assert response.json()["status"] == ("finalized" if finalized else "draft")
+    assert response.json()["clinical_ls"] == (2 if finalized else None)
+    assert response.json()["annotator_confidence"] == (0.9 if finalized else None)
+    assert (response.json()["finalized_at"] is not None) == finalized
+
+
+@pytest.mark.parametrize("resource,code,message", [
+    ("evaluations/{id}", "evaluation_not_found", "Evaluation not found."),
+    ("images/{id}/content", "image_not_found", "Image not found."),
+])
+def test_get_missing_resource(api, resource, code, message):
+    response = api.client.get("/api/v1/" + resource.format(id=uuid4()))
+    assert response.status_code == 404
+    assert response.json() == {"error": {"code": code, "message": message}}
+
+
+@pytest.mark.parametrize("image_format,media_type", [("PNG", "image/png"), ("JPEG", "image/jpeg")])
+def test_get_original_image_content(api, image_format, media_type):
+    content = encoded_image(image_format)
+    uploaded = upload(api, create_case(api), content, media_type)
+    assert uploaded.status_code == 201
+    image_id = uploaded.json()["image_id"]
+    with api.sessions() as session:
+        storage_key = ExperimentRepository(session).get_image(UUID(image_id)).storage_path
+    response = api.client.get(f"/api/v1/images/{image_id}/content")
+    assert response.status_code == 200
+    assert response.content == content
+    assert response.headers["content-type"] == media_type
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert "content-disposition" not in response.headers
+    for private in ("private-original-name", "storage_path", storage_key, str(api.storage.root)):
+        assert private not in str(dict(response.headers))
+
+
+def test_get_jpeg_content_with_jpeg_storage_suffix(api):
+    content = encoded_image("JPEG")
+    stored = api.storage.save(content, category="images", suffix=".jpeg")
+    case_id = create_case(api)
+    with api.sessions.begin() as session:
+        record = ExperimentRepository(session).add_image(
+            case_id=UUID(case_id), storage_path=stored.path, width=32, height=24, sha256=stored.sha256,
+        )
+        image_id = record.id
+    response = api.client.get(f"/api/v1/images/{image_id}/content")
+    assert response.status_code == 200
+    assert response.content == content
+    assert response.headers["content-type"] == "image/jpeg"
+
+
+@pytest.mark.parametrize("failure", ["missing", "invalid_key", "inaccessible"])
+def test_unavailable_stored_image_returns_safe_server_error(api, monkeypatch, failure):
+    image_id = upload(api, create_case(api)).json()["image_id"]
+    with api.sessions.begin() as session:
+        record = ExperimentRepository(session).get_image(UUID(image_id))
+        storage_key = record.storage_path
+        if failure == "invalid_key":
+            record.storage_path = "../private-image.png"
+    if failure == "missing":
+        api.storage.delete(storage_key)
+    elif failure == "inaccessible":
+        def denied(key):
+            raise PermissionError(f"Private filesystem details: {api.storage.root}/{key}")
+        monkeypatch.setattr(api.storage, "read", denied)
+    response = api.client.get(f"/api/v1/images/{image_id}/content")
+    assert response.status_code == 500
+    assert response.json() == {"error": {
+        "code": "image_content_unavailable", "message": "Stored image content is unavailable.",
+    }}
+    for private in (storage_key, str(api.storage.root), "private-image", "Private filesystem", "storage_path"):
+        assert private not in response.text
+        assert private not in str(dict(response.headers))
+
+
+def test_image_content_closes_session_before_storage_read(api, monkeypatch):
+    image_id = upload(api, create_case(api)).json()["image_id"]
+    closed = []
+    original_close = Session.close
+    original_read = api.storage.read
+
+    def close(session):
+        original_close(session)
+        closed.append(session)
+
+    def read(key):
+        assert len(closed) == 1
+        assert not closed[0].in_transaction()
+        assert not closed[0].identity_map
+        return original_read(key)
+
+    monkeypatch.setattr(Session, "close", close)
+    monkeypatch.setattr(api.storage, "read", read)
+    response = api.client.get(f"/api/v1/images/{image_id}/content")
+    assert response.status_code == 200
+    assert response.content == encoded_image("PNG")
+
+
 def test_complete_http_lifecycle_without_cuda(api):
     """All experimental records originate in HTTP requests; SAM is the only fake."""
     evaluation = create_evaluation(api)
