@@ -88,7 +88,7 @@ def test_box_image_and_prompt_reach_wrapper() -> None:
     result = run(service.segment(image, prompt, region_id=0, ls_score=2))
 
     assert segmenter.calls == [(image, prompt)]
-    assert result.region_name == "central"
+    assert result.region_name == "Central"
     assert result.ls_score == 2
     assert result.ls_source == "user"
 

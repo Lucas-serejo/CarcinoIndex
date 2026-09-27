@@ -208,6 +208,9 @@ def test_regions_returns_centralized_catalog(client: TestClient) -> None:
     assert len(regions) == 13
     assert [region["region_id"] for region in regions] == list(range(13))
     assert regions[0]["code"] == "central"
+    assert regions[1] == {
+        "region_id": 1, "code": "right_upper", "display_name": "Right upper",
+    }
     assert regions[-1]["code"] == "lower_ileum"
 
 
@@ -219,7 +222,7 @@ def test_box_segmentation_with_jpeg_and_manual_ls(
     assert response.status_code == 200, response.text
     body = response.json()
     UUID(body["analysis_id"])
-    assert body["region"] == {"region_id": 0, "region_name": "central"}
+    assert body["region"] == {"region_id": 0, "region_name": "Central"}
     assert body["ls_assessment"] == {"ls_score": 2, "source": "user"}
     assert body["metadata"]["selected_score"] == pytest.approx(0.88)
     assert isinstance(fake_segmenter.calls[0][1], BoxPrompt)
@@ -227,13 +230,16 @@ def test_box_segmentation_with_jpeg_and_manual_ls(
     assert fake_segmenter.calls[0][0].shape == (24, 32, 3)
 
 
-def test_points_segmentation_with_png(client: TestClient) -> None:
+@pytest.mark.parametrize("region_id, region_name", [(6, "Pelvis"), (1, "Right upper")])
+def test_points_segmentation_with_png(
+    client: TestClient, region_id: int, region_name: str,
+) -> None:
     response = segment(
         client,
         image_format="PNG",
         content_type="image/png",
         data={
-            "region_id": "6",
+            "region_id": str(region_id),
             "prompt_type": "points",
             "points": json.dumps([[10, 10], [2, 2]]),
             "labels": json.dumps([1, 0]),
@@ -241,7 +247,7 @@ def test_points_segmentation_with_png(client: TestClient) -> None:
         },
     )
     assert response.status_code == 200, response.text
-    assert response.json()["region"]["region_name"] == "pelvis"
+    assert response.json()["region"] == {"region_id": region_id, "region_name": region_name}
     assert response.json()["metadata"]["prompt_type"] == "points"
 
 
@@ -433,6 +439,7 @@ def test_complete_pci_bounds(
     assert response.status_code == 200
     assert response.json()["status"] == "complete"
     assert response.json()["pci_total"] == expected
+    assert response.json()["regional_scores"][1]["region_name"] == "Right upper"
 
 
 def test_multiple_observations_use_maximum(client: TestClient) -> None:
