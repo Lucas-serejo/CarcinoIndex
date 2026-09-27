@@ -1,0 +1,18 @@
+<div class="image-stage">
+  <img class="original" [src]="imageUrl()" alt="Persisted laparoscopic image for specialist-guided segmentation"
+    draggable="false" (load)="imageLoaded($event)" (error)="imageFailed.emit()" />
+  @if (maskUrl(); as url) {
+    <img class="mask" [src]="url" alt="Latest saved segmentation mask" draggable="false"
+      (load)="maskLoaded($event)" (error)="maskDecodeError.set(true)" />
+  }
+  <svg class="interaction" [class.disabled]="disabled()" [attr.viewBox]="'0 0 ' + width() + ' ' + height()"
+    aria-label="Bounding box drawing area" aria-describedby="drawing-instructions"
+    (pointerdown)="pointerDown($event)" (pointermove)="pointerMove($event)"
+    (pointerup)="pointerUp($event)" (pointercancel)="pointerCancel($event)" (lostpointercapture)="pointerCancel($event)">
+    @if (box(); as bounds) {
+      <rect [attr.x]="bounds.xMin" [attr.y]="bounds.yMin" [attr.width]="bounds.xMax - bounds.xMin"
+        [attr.height]="bounds.yMax - bounds.yMin" />
+    }
+  </svg>
+</div>
+@if (maskError(); as error) { <p class="error" role="alert">{{ error }}</p> }

@@ -1,0 +1,9 @@
+:host { display: block; min-width: 0; }
+.image-stage { position: relative; background: #17211e; }
+.original { display: block; width: 100%; height: auto; user-select: none; }
+.mask, .interaction { position: absolute; inset: 0; width: 100%; height: 100%; }
+.mask { pointer-events: none; opacity: .5; mix-blend-mode: screen; }
+.interaction { touch-action: none; cursor: crosshair; }
+.interaction.disabled { cursor: wait; }
+rect { fill: rgb(255 210 90 / 10%); stroke: #ffd25a; stroke-width: 3px; vector-effect: non-scaling-stroke; }
+.error { color: var(--danger); }
