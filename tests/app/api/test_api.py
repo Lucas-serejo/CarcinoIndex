@@ -26,9 +26,18 @@ def encoded_image(
     image_format: str,
     *,
     size: tuple[int, int] = (32, 24),
+    orientation: int | None = None,
+    exif: bytes | None = None,
 ) -> bytes:
     output = io.BytesIO()
-    Image.new("RGB", size, (120, 80, 40)).save(output, format=image_format)
+    metadata = {}
+    if orientation is not None:
+        tags = Image.Exif()
+        tags[274] = orientation
+        metadata["exif"] = tags
+    if exif is not None:
+        metadata["exif"] = exif
+    Image.new("RGB", size, (120, 80, 40)).save(output, format=image_format, **metadata)
     return output.getvalue()
 
 
@@ -185,6 +194,32 @@ def test_openapi_documents_existing_routes(client: TestClient) -> None:
     }
     assert client.get("/docs").status_code == 200
     assert client.get("/redoc").status_code == 200
+
+
+@pytest.mark.parametrize("image_format,media_type", [("JPEG", "image/jpeg"), ("PNG", "image/png")])
+@pytest.mark.parametrize("orientation", [None, 1])
+def test_normal_orientation_reaches_sam(client, fake_segmenter, image_format, media_type, orientation):
+    response = segment(client, content_type=media_type,
+                       content=encoded_image(image_format, orientation=orientation))
+    assert response.status_code == 200, response.text
+    assert len(fake_segmenter.calls) == 1
+    assert fake_segmenter.calls[0][0].shape == (24, 32, 3)
+
+
+@pytest.mark.parametrize("image_format,media_type", [("JPEG", "image/jpeg"), ("PNG", "image/png")])
+@pytest.mark.parametrize("orientation", range(2, 9))
+def test_transformed_orientation_never_reaches_sam(
+    client, fake_segmenter, image_format, media_type, orientation,
+):
+    response = segment(client, content_type=media_type,
+                       content=encoded_image(image_format, orientation=orientation))
+    assert response.status_code == 422, response.text
+    assert response.json() == {"error": {
+        "code": "unsupported_image_orientation",
+        "message": "Image orientation metadata is unsupported or invalid. "
+                   "Normalize image orientation before upload.",
+    }}
+    assert fake_segmenter.calls == []
 
 
 def test_health_reports_safe_model_status(client: TestClient) -> None:

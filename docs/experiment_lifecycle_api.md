@@ -70,10 +70,27 @@ and storage repair are not implemented.
 ## Image storage and transactions
 
 Uploads reuse the stateless endpoint's content-type, static-frame, byte-size,
-dimension, and RGB decoding validation. Invalid uploads return `413`, `415`, or
-`422` and create no image record or file. Original bytes are stored without
+dimension, orientation, and RGB decoding validation. Invalid uploads return
+`413`, `415`, or `422` and create no image record or file. Original bytes are stored without
 resizing or recompression, using UUID keys with `.jpg` or `.png` suffixes.
 SHA-256 is computed from those exact bytes. Original filenames are discarded.
+
+JPEG and PNG may both carry EXIF orientation metadata. The shared decoder accepts
+absent orientation or normal Orientation `1`, and rejects Orientation `2` through `8`,
+unsupported values/types, and malformed metadata that cannot be safely interpreted:
+
+```json
+{"error":{"code":"unsupported_image_orientation","message":"Image orientation metadata is unsupported or invalid. Normalize image orientation before upload."}}
+```
+
+The response is HTTP `422`. Normalize orientation before upload; the backend
+never rotates or transposes images and never creates a normalized copy. Preserving
+unchanged bytes while rejecting display transformations keeps browser prompt
+coordinates aligned with SAM pixels. This applies to `POST /cases/{case_id}/images`
+and stateless `POST /segmentations`. `POST /evaluations/{evaluation_id}/segmentations`
+also revalidates stored bytes before inference. Previously stored files are not
+rewritten or audited by a migration, and the content retrieval endpoint continues
+to return their original bytes.
 
 The case lookup finishes before upload validation. Storage occurs before the
 short database write transaction. If persistence or commit raises, only the new

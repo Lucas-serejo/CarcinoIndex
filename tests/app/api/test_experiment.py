@@ -81,9 +81,10 @@ def test_invalid_case_is_not_persisted(api, body):
 @pytest.mark.parametrize("image_format,media_type,suffix", [
     ("JPEG", "image/jpeg", ".jpg"), ("PNG", "image/png", ".png"),
 ])
-def test_upload_preserves_original_bytes_and_safe_metadata(api, image_format, media_type, suffix):
+@pytest.mark.parametrize("orientation", [None, 1])
+def test_upload_preserves_original_bytes_and_safe_metadata(api, image_format, media_type, suffix, orientation):
     case_id = create_case(api)
-    content = encoded_image(image_format)
+    content = encoded_image(image_format, orientation=orientation)
     response = upload(api, case_id, content, media_type)
     assert response.status_code == 201, response.text
     body = response.json()
@@ -100,6 +101,18 @@ def test_upload_preserves_original_bytes_and_safe_metadata(api, image_format, me
         assert record.sha256 == body["sha256"]
         assert (record.width, record.height) == (32, 24)
         assert "private-original-name" not in str(record.__dict__)
+
+
+@pytest.mark.parametrize("image_format,media_type", [("JPEG", "image/jpeg"), ("PNG", "image/png")])
+@pytest.mark.parametrize("orientation", range(2, 9))
+def test_rejected_orientation_creates_no_image_record_or_file(api, image_format, media_type, orientation):
+    response = upload(api, create_case(api), encoded_image(image_format, orientation=orientation), media_type)
+    assert response.status_code == 422, response.text
+    assert response.json()["error"]["code"] == "unsupported_image_orientation"
+    assert not list(api.storage.root.rglob("*"))
+    with api.sessions() as session:
+        assert session.scalar(select(func.count()).select_from(Image)) == 0
+    assert api.fake.calls == []
 
 
 def test_missing_case_creates_no_file(api):
