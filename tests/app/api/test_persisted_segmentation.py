@@ -48,6 +48,23 @@ def persisted_api(database, tmp_path):
 
 
 @pytest.mark.postgresql
+@pytest.mark.parametrize("image_format", ["JPEG", "PNG"])
+def test_preexisting_oriented_image_never_reaches_sam(persisted_api, image_format):
+    api = persisted_api
+    # Simulate original bytes persisted before orientation validation existed.
+    content = encoded_image(image_format, orientation=6)
+    (api.storage.root / api.image_path).write_bytes(content)
+    response = api.client.post(api.url, data=BOX)
+    assert response.status_code == 422, response.text
+    assert response.json()["error"]["code"] == "unsupported_image_orientation"
+    assert api.fake.calls == []
+    assert not list(api.storage.root.glob("masks/*"))
+    assert api.storage.read(api.image_path) == content
+    with api.sessions() as session:
+        assert ExperimentRepository(session).list_attempts(api.eid) == []
+
+
+@pytest.mark.postgresql
 def test_box_and_points_are_committed_with_png_and_sequence(persisted_api):
     api = persisted_api
     for sequence, fields, expected in [

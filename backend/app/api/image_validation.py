@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import io
+import struct
+import warnings
 
 import numpy as np
 from fastapi import UploadFile
@@ -16,6 +18,48 @@ SUPPORTED_MEDIA_TYPES = {
     "image/jpeg": "JPEG",
     "image/png": "PNG",
 }
+
+
+def _validate_orientation(image: Image.Image) -> None:
+    """Fail closed on orientation metadata; never transform uploaded pixels."""
+    try:
+        with warnings.catch_warnings():
+            # Pillow can warn and then treat damaged EXIF as absent.
+            warnings.simplefilter("error", UserWarning)
+            exif = image.getexif()
+            raw = image.info.get("exif")
+            if raw is not None:
+                if raw.startswith(b"Exif\x00\x00"):
+                    raw = raw[6:]
+                if raw[:4] not in (b"II\x2a\x00", b"MM\x00\x2a"):
+                    raise ValueError("Unsupported EXIF header")
+                endian = "<" if raw[:2] == b"II" else ">"
+                offset = struct.unpack_from(endian + "I", raw, 4)[0]
+                if offset < 8:
+                    raise ValueError("Invalid EXIF directory")
+                count = struct.unpack_from(endian + "H", raw, offset)[0]
+                if offset + 2 + 12 * count + 4 > len(raw):
+                    raise ValueError("Truncated EXIF directory")
+                # Inspect IFD0 entries because Pillow silently drops unknown
+                # types and empty tags, which must not become "no orientation".
+                for index in range(count):
+                    entry = offset + 2 + 12 * index
+                    tag, kind, length = struct.unpack_from(endian + "HHI", raw, entry)
+                    if tag == 274:
+                        value = struct.unpack_from(endian + "H", raw, entry + 8)[0]
+                        if kind != 3 or length != 1 or value != 1:
+                            raise ValueError("Unsupported orientation")
+            orientation = exif.get(274, 1)
+            if type(orientation) is not int or orientation != 1:
+                raise ValueError("Unsupported orientation")
+    except Exception as exc:
+        # Metadata parser failures must never expose internals or reach SAM.
+        raise APIError(
+            422,
+            "unsupported_image_orientation",
+            "Image orientation metadata is unsupported or invalid. "
+            "Normalize image orientation before upload.",
+        ) from exc
 
 
 async def decode_image_upload(
@@ -96,6 +140,8 @@ def decode_image_bytes(
 
         with Image.open(io.BytesIO(content)) as decoded:
             decoded.load()
+            # PNG EXIF may occur after IDAT, so inspect after the full load.
+            _validate_orientation(decoded)
             rgb = decoded.convert("RGB")
             image = np.asarray(rgb, dtype=np.uint8).copy()
     except APIError:

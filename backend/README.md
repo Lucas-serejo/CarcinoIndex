@@ -1,8 +1,10 @@
 # Backend CarcinoIndex — M3
 
-API experimental para segmentação assistida com SAM 2.1 Hiera Small e
-composição manual do PCI. O SAM produz uma máscara a partir de box ou pontos;
-ele não classifica lesões. O LS é opcional e sempre informado pelo usuário.
+Experimental API for specialist-guided SAM 2.1 Hiera Small segmentation and manual
+PCI composition. SAM produces a mask from box or point prompts; it does not
+classify lesions. Clinical LS is always supplied by the specialist.
+It is optional in the stateless API and draft Evaluations, and required when
+finalizing an Evaluation.
 
 ## Configuração
 
