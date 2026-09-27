@@ -118,7 +118,7 @@ def compose_pci(
         regional_scores.append(
             RegionalPCIScore(
                 region_id=region_id,
-                region_name=region.code,
+                region_name=region.display_name,
                 ls_score=selected.ls_score,
                 source_observation_id=selected.observation_id,
                 observations_count=len(region_observations),

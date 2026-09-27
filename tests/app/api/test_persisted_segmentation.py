@@ -60,7 +60,7 @@ def test_box_and_points_are_committed_with_png_and_sequence(persisted_api):
         body = response.json()
         assert body["evaluation_id"] == str(api.eid)
         assert body["sequence_number"] == sequence
-        assert body["region"] == {"region_id": 6, "region_name": "pelvis"}
+        assert body["region"] == {"region_id": 6, "region_name": "Pelvis"}
         png = base64.b64decode(body["mask"]["data"], validate=True)
         with Image.open(io.BytesIO(png)) as mask:
             assert mask.format == "PNG" and mask.size == (32, 24)

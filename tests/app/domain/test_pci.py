@@ -28,6 +28,13 @@ def test_catalog_ids_are_zero_through_twelve() -> None:
     assert [region.region_id for region in PCI_REGIONS] == list(range(13))
 
 
+def test_regional_score_uses_display_name() -> None:
+    result = compose_pci((observation("obs", 1, 2),))
+    assert result.regional_scores[0].region_id == 1
+    assert result.regional_scores[0].region_name == "Right upper"
+    assert PCI_REGIONS[1].code == "right_upper"
+
+
 @pytest.mark.parametrize("ls_score", [0, 3])
 def test_minimum_and_maximum_ls_are_valid(ls_score: int) -> None:
     assert observation("obs", 0, ls_score).ls_score == ls_score

@@ -69,7 +69,7 @@ class SegmentationService:
         return SegmentationServiceResult(
             analysis_id=uuid4(),
             region_id=region_id,
-            region_name=region.code,
+            region_name=region.display_name,
             ls_score=ls_score,
             ls_source=ls_source if ls_score is not None else None,
             metadata=result.to_metadata_dict(),
