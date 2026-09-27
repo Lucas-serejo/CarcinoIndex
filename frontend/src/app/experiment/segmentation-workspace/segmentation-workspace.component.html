@@ -1,0 +1,40 @@
+<section aria-labelledby="segmentation-title">
+  <h1 id="segmentation-title">Segmentation workspace</h1>
+  <p class="intro">Indicate a lesion, then review the SAM segmentation result.</p>
+  @if (evaluation(); as evaluation) { <p class="context">PCI region {{ evaluation.pci_region_id }} · {{ evaluation.status === 'draft' ? 'Draft evaluation' : 'Finalized evaluation' }}</p> }
+  @switch (state()) {
+    @case ('loading-evaluation') { <p role="status">Loading persisted evaluation…</p> }
+    @case ('loading-image') { <p role="status">Loading persisted image…</p> }
+    @case ('finalized') { <p role="status">This Evaluation is finalized. Segmentation is unavailable.</p> }
+    @case ('error') {
+      <p role="alert" class="error">{{ error() }}</p>
+      <button type="button" (click)="load()">Retry loading</button>
+    }
+    @case ('ready') {
+      @if (imageUrl(); as url) {
+        <div class="workspace">
+          <app-segmentation-canvas #canvas [imageUrl]="url" [mask]="result()?.mask ?? null" [disabled]="segmenting()"
+            (boxChange)="prepareBox($event)" (imageFailed)="imageFailed()" />
+          <aside aria-label="Segmentation controls" [attr.aria-busy]="segmenting()">
+            <h2>Prompt</h2>
+            <p id="drawing-instructions">Drag a bounding box around the specialist-indicated lesion. Draw again to replace it. Box drawing requires a mouse, pen, or touch.</p>
+            <p role="status">{{ box() ? 'Box ready for segmentation.' : 'Draw a box to begin.' }}</p>
+            <button type="button" (click)="canvas.clearBox()" [disabled]="segmenting()">Clear box</button>
+            <button class="primary-button" type="button" (click)="segment()" [disabled]="!box() || segmenting()">Run segmentation</button>
+            @if (segmenting()) { <p role="status">SAM is processing the indicated area. This may take a while…</p> }
+            @if (segmentationError(); as error) { <p role="alert" class="error">{{ error }}</p> }
+            @if (result(); as attempt) {
+              <div class="result" role="status">
+                <h2>Attempt #{{ attempt.sequence_number }}</h2>
+                <p>Segmentation attempt saved. Review the segmentation result.</p>
+                <p>{{ attempt.region.region_name }}</p>
+              </div>
+              <button type="button" disabled aria-describedby="clinical-note">Continue to clinical assessment</button>
+              <p id="clinical-note" class="hint">Clinical assessment will be implemented in the next stage.</p>
+            }
+          </aside>
+        </div>
+      }
+    }
+  }
+</section>
