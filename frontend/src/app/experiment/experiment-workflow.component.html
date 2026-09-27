@@ -1,8 +1,11 @@
 <ol class="steps" aria-label="Evaluation stages">
-  <li [attr.aria-current]="evaluation() ? null : 'step'">01 Setup <span>{{ evaluation() ? 'Complete' : 'Active' }}</span></li>
-  <li>02 Segmentation <span>Upcoming</span></li>
+  <li [attr.aria-current]="phase() === 'setup' ? 'step' : null">01 Setup <span>{{ phase() === 'setup' ? 'Active' : 'Complete' }}</span></li>
+  <li [attr.aria-current]="phase() === 'segmentation' ? 'step' : null">02 Segmentation <span>{{ phase() === 'segmentation' ? 'Active' : 'Upcoming' }}</span></li>
   <li>03 Clinical assessment <span>Upcoming</span></li>
 </ol>
+@if (phase() === 'segmentation') {
+  <app-segmentation-workspace [evaluationId]="evaluation()!.evaluation_id" />
+} @else {
 <div class="workspace">
   <section aria-labelledby="setup-title">
     @if (evaluation(); as ready) {
@@ -14,8 +17,8 @@
         <dt>Image dimensions</dt><dd>{{ image()?.width }} × {{ image()?.height }} pixels</dd>
         <dt>Pseudonymous annotator code</dt><dd>{{ ready.annotator_code }}</dd>
       </dl>
-      <button type="button" disabled aria-describedby="next-step">Segmentation workspace</button>
-      <p id="next-step" class="hint">Segmentation interaction is the next application stage and is not implemented yet.</p>
+      <button type="button" (click)="enterSegmentation()" aria-describedby="next-step">Segmentation workspace</button>
+      <p id="next-step" class="hint">Open the persisted image to indicate a lesion with a bounding box.</p>
     } @else {
       <h1 id="setup-title">Experiment setup</h1>
       <p class="intro">Prepare an image for specialist-guided evaluation.</p>
@@ -88,3 +91,4 @@
     <p class="hint">The preview stays local in browser memory. Submission uploads the selected image to the research backend.</p>
   </aside>
 </div>
+}
