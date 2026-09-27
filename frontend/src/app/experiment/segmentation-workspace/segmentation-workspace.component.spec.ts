@@ -159,6 +159,27 @@ describe('Persisted segmentation workspace', () => {
     expect(element.querySelector('.mask')?.getAttribute('src')).toBe('data:image/png;base64,second');
   });
 
+  it('allows the clinical transition only after a persisted attempt and clears it for a new box', async () => {
+    const emitted = vi.fn(); component.clinicalAssessmentRequested.subscribe(emitted);
+    const continueButton = () => Array.from(element.querySelectorAll('button')).find(button => button.textContent?.includes('Continue to clinical assessment'));
+    await ready();
+    component.continueToClinicalAssessment();
+    expect(continueButton()).toBeUndefined();
+    expect(emitted).not.toHaveBeenCalled();
+    canvas().boxChange.emit(box);
+    await submit();
+    expect(continueButton()?.disabled).toBe(false);
+    continueButton()!.click();
+    expect(emitted).toHaveBeenCalledExactlyOnceWith(undefined);
+    canvas().boxChange.emit({ ...box, xMin: 210 }); fixture.detectChanges();
+    expect(continueButton()).toBeUndefined();
+    component.continueToClinicalAssessment();
+    expect(emitted).toHaveBeenCalledTimes(1);
+    await submit();
+    expect(continueButton()?.disabled).toBe(false);
+    http.expectNone('/api/v1/evaluations/evaluation-1/finalize');
+  });
+
   it('preserves the prompt after segmentation failure for retry', async () => {
     await ready();
     canvas().boxChange.emit(box);

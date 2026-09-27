@@ -29,8 +29,8 @@
                 <p>Segmentation attempt saved. Review the segmentation result.</p>
                 <p>{{ attempt.region.region_name }}</p>
               </div>
-              <button type="button" disabled aria-describedby="clinical-note">Continue to clinical assessment</button>
-              <p id="clinical-note" class="hint">Clinical assessment will be implemented in the next stage.</p>
+              <button type="button" (click)="continueToClinicalAssessment()" [disabled]="segmenting()" aria-describedby="clinical-note">Continue to clinical assessment</button>
+              <p id="clinical-note" class="hint">Continue to manually assign clinical LS after reviewing the result.</p>
             }
           </aside>
         </div>

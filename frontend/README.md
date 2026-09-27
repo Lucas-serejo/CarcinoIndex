@@ -4,7 +4,8 @@ Angular 21 standalone application shell for the academic research prototype.
 Experiment Setup is implemented alongside system status and project context.
 Start evaluation becomes available after a successful health check with the model loaded.
 The F3 Segmentation Workspace supports specialist-guided bounding boxes and saved
-segmentation attempts. Clinical assessment is not implemented yet.
+segmentation attempts. F4 Clinical Assessment records specialist-supplied LS through
+an inline review and persisted Evaluation finalization.
 
 ## Experiment Setup
 
@@ -87,14 +88,62 @@ only the latest result is displayed. Previous attempts remain persisted on the b
 SAM scores are not shown as clinical confidence.
 
 There are no point prompts, zoom/pan, history retrieval, comparisons, mask editing,
-mask acceptance/reference/ground-truth semantics, clinical LS, or finalization.
-The clinical-assessment action is disabled pending the next stage. There is no
-router, resume-by-URL, browser persistence, or new runtime dependency.
+or mask acceptance/reference/ground-truth semantics. After a successful persisted
+attempt, Continue to clinical assessment emits a payload-free event to the workflow.
+Preparing a new box clears that result and removes the action until another attempt
+succeeds. Leaving F3 destroys the workspace and releases its persisted-image object URL.
+There is no router, resume-by-URL, browser persistence, or new runtime dependency.
 
 Refresh or leaving the page loses workflow state. No browser persistence is used.
 Server records already created remain on the backend. Retry only prevents repeating
 stages whose successful responses were received; a lost response after a server commit
 cannot be deduplicated without backend idempotency, which is outside this iteration.
+
+## Clinical Assessment (F4)
+
+`ExperimentWorkflowComponent` owns the local `setup`, `segmentation`, and `clinical`
+phases. `ClinicalAssessmentComponent` receives only the persisted Evaluation ID,
+then re-reads `GET /api/v1/evaluations/{evaluation_id}`. The retrieved record is the
+source of truth for status and PCI region ID; the setup response is not used as the
+clinical record. An already finalized Evaluation immediately renders a read-only
+summary and emits the persisted response to the parent without posting again.
+
+For a draft, a typed Reactive Form offers exactly four native radio choices, LS 0
+through LS 3, with no default. Clinical LS is manually supplied by the specialist
+using the study protocol. No lesion-size threshold descriptions are embedded yet.
+No mask area, bounding-box geometry, or SAM metadata is used to infer LS.
+
+Annotator confidence is optional and starts blank. The numeric input accepts 0–100%.
+At review, the percentage is divided by 100 for the backend's 0–1 contract (73% becomes
+0.73, 0% becomes 0, and 100% becomes 1); blank becomes `null`. This is the specialist's
+confidence in the clinical LS assessment, not a SAM score or segmentation quality.
+
+Review assessment captures an immutable request snapshot and displays LS, confidence,
+and persisted region ID before any POST. Back to edit retains the form values. The
+review warns that finalization is irreversible in this prototype. Finalize evaluation
+explicitly posts JSON to `POST /api/v1/evaluations/{evaluation_id}/finalize` with only
+`clinical_ls` and `annotator_confidence`; no attempt ID or segmentation data is sent.
+There is no short finalization timeout. Duplicate submission and returning to edit
+are blocked while finalization runs, and requests are cancelled on component destruction.
+
+Initial retrieval errors offer Retry. Finalization errors preserve the review snapshot
+and show safe backend messages, with explicit retry and Refresh evaluation state actions.
+A request can commit on the backend even if its response is lost; refreshing performs
+another GET. A finalized response replaces the review with the persisted summary;
+a draft response keeps the same review available for retry. Failed refreshes also
+preserve the snapshot. There is no automatic retry, polling, or frontend idempotency.
+
+The final summary displays persisted LS, confidence percentage or Not provided,
+region ID, and Finalized status without editable controls. Both successful finalization
+and loading an already finalized record emit the persisted Evaluation to the parent,
+which marks the clinical step Complete. Only this regional Evaluation is finalized:
+finalization does not accept, reference, validate, or select a segmentation mask and
+does not mean a complete 13-region PCI score. Complete PCI composition remains out of scope.
+
+LS choices use a fieldset and legend with visible labels; confidence has a label and
+helper text. Validation messages are associated with their controls. Async progress
+uses status semantics, failures use alerts, and native buttons retain visible focus.
+The form and context stack on smaller screens using plain CSS.
 
 ## Prerequisites and installation
 
@@ -146,6 +195,10 @@ ordered lifecycle requests, partial retries, progressive locking, and duplicate 
 F3 tests cover binary content/error handling, exact multipart fields, pointer geometry
 and resizing, cancellation, persisted loading, finalized-state blocking, mask alignment,
 multiple attempts, failure retries, workflow transition, and object URL cleanup.
+F4 tests cover persisted retrieval, manual LS validation, confidence conversion,
+review snapshots, exact JSON finalization, duplicate prevention, safe errors,
+uncertain-response recovery, read-only summaries, parent synchronization, and request
+cancellation. Existing F2/F3 tests remain in place; no live backend or SAM is required.
 
 Production assets are written to `dist/carcinoindex/browser/`. The development proxy
 is not included in that build. Production hosting must route `/health` and `/api/`
@@ -161,6 +214,8 @@ src/app/
     experiment-api.service.spec.ts
   experiment/
     experiment-workflow.component.ts / .html / .css / .spec.ts
+    clinical-assessment/
+      clinical-assessment.component.ts / .html / .css / .spec.ts
     segmentation-workspace/
       segmentation-workspace.component.ts / .html / .css / .spec.ts
       segmentation-canvas/

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, input, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, input, OnInit, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { firstValueFrom } from 'rxjs';
 import { EvaluationResponse, ImageBox, PersistedSegmentationResponse } from '../../api/api.models';
@@ -14,6 +14,7 @@ import { SegmentationCanvasComponent } from './segmentation-canvas/segmentation-
 })
 export class SegmentationWorkspaceComponent implements OnInit {
   readonly evaluationId = input.required<string>();
+  readonly clinicalAssessmentRequested = output<void>();
   private readonly api = inject(ExperimentApiService);
   private readonly destroyRef = inject(DestroyRef);
   readonly evaluation = signal<EvaluationResponse | null>(null);
@@ -90,6 +91,12 @@ export class SegmentationWorkspaceComponent implements OnInit {
       );
     } finally {
       if (!this.destroyRef.destroyed) this.segmenting.set(false);
+    }
+  }
+
+  continueToClinicalAssessment(): void {
+    if (this.state() === 'ready' && this.result() && !this.segmenting()) {
+      this.clinicalAssessmentRequested.emit();
     }
   }
 

@@ -5,6 +5,7 @@ import { By } from '@angular/platform-browser';
 import { SegmentationWorkspaceComponent } from './segmentation-workspace/segmentation-workspace.component';
 import { CaseResponse, EvaluationResponse, ImageResponse } from '../api/api.models';
 import { ExperimentWorkflowComponent } from './experiment-workflow.component';
+import { ClinicalAssessmentComponent } from './clinical-assessment/clinical-assessment.component';
 
 describe('Experiment setup', () => {
   let fixture: ComponentFixture<ExperimentWorkflowComponent>;
@@ -208,6 +209,32 @@ describe('Experiment setup', () => {
     expect(element.querySelector('.steps li')?.textContent).toContain('Complete');
     http.expectOne('/api/v1/evaluations/evaluation-1').flush({ ...evaluation, status: 'finalized' });
     await Promise.resolve();
+  });
+
+  it('transitions from the F3 event using only evaluation identity and synchronizes persisted finalization', async () => {
+    loadRegions();
+    component.evaluation.set(evaluation);
+    component.enterSegmentation(); fixture.detectChanges();
+    http.expectOne('/api/v1/evaluations/evaluation-1').flush(evaluation);
+    await Promise.resolve();
+    http.expectOne('/api/v1/images/image-1/content').flush(new Blob(['image'], { type: 'image/png' }));
+    await Promise.resolve(); fixture.detectChanges();
+    const workspace = fixture.debugElement.query(By.directive(SegmentationWorkspaceComponent)).componentInstance as SegmentationWorkspaceComponent;
+    workspace.clinicalAssessmentRequested.emit(); fixture.detectChanges();
+    expect(component.phase()).toBe('clinical');
+    expect(fixture.debugElement.query(By.directive(SegmentationWorkspaceComponent))).toBeNull();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:preview');
+    const clinical = fixture.debugElement.query(By.directive(ClinicalAssessmentComponent)).componentInstance as ClinicalAssessmentComponent;
+    expect(clinical.evaluationId()).toBe('evaluation-1');
+    expect('file' in clinical || 'mask' in clinical || 'metadata' in clinical).toBe(false);
+    http.expectOne('/api/v1/evaluations/evaluation-1').flush(evaluation); fixture.detectChanges();
+    expect(Array.from(element.querySelectorAll('.steps span')).map(span => span.textContent)).toEqual(['Complete', 'Complete', 'Active']);
+    clinical.form.controls.clinicalLs.setValue(2); clinical.reviewAssessment(); clinical.finalize();
+    const finalized: EvaluationResponse = { ...evaluation, status: 'finalized', clinical_ls: 2, finalized_at: '2026-09-26T12:00:00Z' };
+    http.expectOne('/api/v1/evaluations/evaluation-1/finalize').flush(finalized); fixture.detectChanges();
+    expect(component.evaluation()).toEqual(finalized);
+    expect(Array.from(element.querySelectorAll('.steps span')).map(span => span.textContent)).toEqual(['Complete', 'Complete', 'Complete']);
+    expect(element.querySelector('[aria-current="step"]')).toBeNull();
   });
 
   it('retries evaluation failure without another case or upload and locks the stored image', async () => {
