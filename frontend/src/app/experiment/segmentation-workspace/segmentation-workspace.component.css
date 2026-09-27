@@ -1,0 +1,14 @@
+:host { display: block; padding-top: 30px; }
+h1 { font-size: 32px; font-weight: 550; letter-spacing: -1px; margin: 0 0 12px; }
+h2 { font-size: 16px; margin: 0 0 12px; }
+.intro, .context, .hint { color: var(--muted); }
+.context { font-size: 13px; margin-bottom: 24px; }
+.workspace { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 28px; align-items: start; }
+aside { font-size: 14px; }
+button { padding: 12px 16px; margin: 0 0 12px; width: 100%; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--accent); cursor: pointer; }
+.primary-button { background: var(--accent); color: white; border-color: var(--accent); font-weight: 600; }
+button:disabled { opacity: .7; cursor: not-allowed; }
+.result { border-top: 1px solid var(--border); padding-top: 20px; margin-top: 20px; }
+.error { color: var(--danger); overflow-wrap: anywhere; }
+.hint { font-size: 12px; }
+@media (max-width: 800px) { .workspace { grid-template-columns: 1fr; } }

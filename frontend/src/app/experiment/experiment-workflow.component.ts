@@ -4,6 +4,7 @@ import { FormControl, FormGroup, ReactiveFormsModule, ValidatorFn, Validators } 
 import { firstValueFrom } from 'rxjs';
 import { CaseResponse, EvaluationResponse, ImageResponse, Region } from '../api/api.models';
 import { ExperimentApiService } from '../api/experiment-api.service';
+import { SegmentationWorkspaceComponent } from './segmentation-workspace/segmentation-workspace.component';
 
 const pseudonymousCode: ValidatorFn = (control) => {
   const value = (control.value as string).trim();
@@ -14,7 +15,7 @@ type Stage = 'Creating clinical case' | 'Uploading image' | 'Creating evaluation
 
 @Component({
   selector: 'app-experiment-workflow',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, SegmentationWorkspaceComponent],
   templateUrl: './experiment-workflow.component.html',
   styleUrl: './experiment-workflow.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -31,6 +32,7 @@ export class ExperimentWorkflowComponent {
   readonly image = signal<ImageResponse | null>(null);
   readonly evaluation = signal<EvaluationResponse | null>(null);
   readonly stage = signal<Stage | null>(null);
+  readonly phase = signal<'setup' | 'segmentation'>('setup');
   readonly failure = signal<{ stage: Stage; message: string } | null>(null);
   readonly form = new FormGroup({
     patientCode: new FormControl('', { nonNullable: true, validators: pseudonymousCode }),
@@ -132,6 +134,13 @@ export class ExperimentWorkflowComponent {
 
   regionName(id: number): string {
     return this.regions().find(region => region.region_id === id)?.display_name ?? '';
+  }
+
+  enterSegmentation(): void {
+    if (!this.evaluation()) return;
+    this.revokePreview();
+    this.form.controls.file.setValue(null);
+    this.phase.set('segmentation');
   }
 
   private revokePreview(): void {

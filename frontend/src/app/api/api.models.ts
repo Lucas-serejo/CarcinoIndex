@@ -62,3 +62,32 @@ export interface ApiErrorResponse {
     message: string;
   };
 }
+
+export interface ImageBox {
+  xMin: number;
+  yMin: number;
+  xMax: number;
+  yMax: number;
+}
+
+export interface MaskResponse {
+  encoding: 'png_base64';
+  media_type: 'image/png';
+  width: number;
+  height: number;
+  data: string;
+}
+
+export interface RegionSelectionResponse {
+  region_id: number;
+  region_name: string;
+}
+
+export interface PersistedSegmentationResponse {
+  attempt_id: string;
+  evaluation_id: string;
+  sequence_number: number;
+  region: RegionSelectionResponse;
+  metadata: Record<string, unknown>;
+  mask: MaskResponse;
+}

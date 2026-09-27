@@ -1,6 +1,8 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
+import { SegmentationWorkspaceComponent } from './segmentation-workspace/segmentation-workspace.component';
 import { CaseResponse, EvaluationResponse, ImageResponse } from '../api/api.models';
 import { ExperimentWorkflowComponent } from './experiment-workflow.component';
 
@@ -180,6 +182,32 @@ describe('Experiment setup', () => {
     await Promise.resolve();
     http.expectOne('/api/v1/images/image-1/evaluations').flush(evaluation);
     await pending;
+  });
+
+  it('enters F3 with only the persisted evaluation ID and releases setup resources', async () => {
+    loadRegions();
+    fillForm();
+    const pending = component.submit();
+    await flushCase();
+    await flushImage();
+    http.expectOne('/api/v1/images/image-1/evaluations').flush(evaluation);
+    await pending;
+    fixture.detectChanges();
+    expect(element.querySelector('[aria-current="step"]')?.textContent).toContain('Setup');
+    const button = Array.from(element.querySelectorAll('button')).find(button => button.textContent?.includes('Segmentation workspace'))!;
+    expect(button.disabled).toBe(false);
+    button.click();
+    fixture.detectChanges();
+    const workspace = fixture.debugElement.query(By.directive(SegmentationWorkspaceComponent)).componentInstance as SegmentationWorkspaceComponent;
+    expect(workspace.evaluationId()).toBe('evaluation-1');
+    expect('file' in workspace).toBe(false);
+    expect(component.form.controls.file.value).toBeNull();
+    expect(component.previewUrl()).toBeNull();
+    expect(URL.revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:preview');
+    expect(element.querySelector('[aria-current="step"]')?.textContent).toContain('Segmentation');
+    expect(element.querySelector('.steps li')?.textContent).toContain('Complete');
+    http.expectOne('/api/v1/evaluations/evaluation-1').flush({ ...evaluation, status: 'finalized' });
+    await Promise.resolve();
   });
 
   it('retries evaluation failure without another case or upload and locks the stored image', async () => {

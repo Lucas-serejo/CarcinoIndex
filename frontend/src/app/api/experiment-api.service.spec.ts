@@ -25,6 +25,62 @@ describe('ExperimentApiService', () => {
     vi.useRealTimers();
   });
 
+  it('retrieves a persisted evaluation', async () => {
+    const result = firstValueFrom(service.getEvaluation('evaluation-1'));
+    const request = http.expectOne('/api/v1/evaluations/evaluation-1');
+    expect(request.request.method).toBe('GET');
+    request.flush({ evaluation_id: 'evaluation-1' });
+    expect((await result).evaluation_id).toBe('evaluation-1');
+  });
+
+  it.each(['image/png', 'image/jpeg'])('retrieves the original %s Blob', async (type) => {
+    const blob = new Blob(['bytes'], { type });
+    const result = firstValueFrom(service.getImageContent('image-1'));
+    const request = http.expectOne('/api/v1/images/image-1/content');
+    expect(request.request.method).toBe('GET');
+    expect(request.request.responseType).toBe('blob');
+    request.flush(blob);
+    expect(await result).toBe(blob);
+  });
+
+  it('rejects unsupported image content', async () => {
+    const result = firstValueFrom(service.getImageContent('image-1'));
+    const assertion = expect(result).rejects.toThrow('not a supported JPEG or PNG');
+    http.expectOne('/api/v1/images/image-1/content').flush(new Blob(['text'], { type: 'text/plain' }));
+    await assertion;
+  });
+
+  it.each([
+    [JSON.stringify({ error: { code: 'missing', message: 'Image content is unavailable.' } }), 'Image content is unavailable.'],
+    ['private binary contents', 'Unable to reach the backend'],
+    [JSON.stringify({ detail: 'private exception' }), 'Unable to reach the backend'],
+  ])('maps binary error bodies safely', async (body, message) => {
+    const result = firstValueFrom(service.getImageContent('image-1'));
+    const assertion = expect(result).rejects.toThrow(message);
+    http.expectOne('/api/v1/images/image-1/content').flush(new Blob([body], { type: 'application/json' }),
+      { status: 404, statusText: 'Not Found' });
+    await assertion;
+  });
+
+  it('posts exactly the persisted BOX contract without a multipart header or inference timeout', async () => {
+    vi.useFakeTimers();
+    const result = firstValueFrom(service.createBoxSegmentationAttempt('evaluation-1', { xMin: 20, yMin: 30, xMax: 200, yMax: 300 }));
+    const request = http.expectOne('/api/v1/evaluations/evaluation-1/segmentations');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toBeInstanceOf(FormData);
+    const body = request.request.body as FormData;
+    expect([...body.keys()]).toEqual(['prompt_type', 'box', 'multimask_output']);
+    expect(body.get('prompt_type')).toBe('box');
+    expect(JSON.parse(body.get('box') as string)).toEqual([20, 30, 200, 300]);
+    expect(body.get('multimask_output')).toBe('true');
+    expect(body.has('image')).toBe(false);
+    expect(request.request.headers.has('Content-Type')).toBe(false);
+    await vi.advanceTimersByTimeAsync(120000);
+    expect(request.cancelled).toBe(false);
+    request.flush({ sequence_number: 1 });
+    expect((await result).sequence_number).toBe(1);
+  });
+
   it('loads PCI regions from the relative backend endpoint', async () => {
     const result = firstValueFrom(service.getRegions());
     const request = http.expectOne('/api/v1/pci/regions');
