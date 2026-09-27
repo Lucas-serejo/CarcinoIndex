@@ -1,10 +1,12 @@
 <ol class="steps" aria-label="Evaluation stages">
   <li [attr.aria-current]="phase() === 'setup' ? 'step' : null">01 Setup <span>{{ phase() === 'setup' ? 'Active' : 'Complete' }}</span></li>
-  <li [attr.aria-current]="phase() === 'segmentation' ? 'step' : null">02 Segmentation <span>{{ phase() === 'segmentation' ? 'Active' : 'Upcoming' }}</span></li>
-  <li>03 Clinical assessment <span>Upcoming</span></li>
+  <li [attr.aria-current]="phase() === 'segmentation' ? 'step' : null">02 Segmentation <span>{{ phase() === 'clinical' ? 'Complete' : phase() === 'segmentation' ? 'Active' : 'Upcoming' }}</span></li>
+  <li [attr.aria-current]="phase() === 'clinical' && evaluation()?.status !== 'finalized' ? 'step' : null">03 Clinical assessment <span>{{ phase() === 'clinical' ? evaluation()?.status === 'finalized' ? 'Complete' : 'Active' : 'Upcoming' }}</span></li>
 </ol>
 @if (phase() === 'segmentation') {
-  <app-segmentation-workspace [evaluationId]="evaluation()!.evaluation_id" />
+  <app-segmentation-workspace [evaluationId]="evaluation()!.evaluation_id" (clinicalAssessmentRequested)="enterClinicalAssessment()" />
+} @else if (phase() === 'clinical') {
+  <app-clinical-assessment [evaluationId]="evaluation()!.evaluation_id" (evaluationFinalized)="evaluation.set($event)" />
 } @else {
 <div class="workspace">
   <section aria-labelledby="setup-title">

@@ -32,6 +32,11 @@ export interface CreateEvaluationRequest {
   annotator_code: string;
 }
 
+export interface FinalizeEvaluationRequest {
+  clinical_ls: number;
+  annotator_confidence: number | null;
+}
+
 export interface EvaluationResponse {
   evaluation_id: string;
   image_id: string;

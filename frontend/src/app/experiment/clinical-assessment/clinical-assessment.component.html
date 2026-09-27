@@ -1,0 +1,80 @@
+<section aria-labelledby="clinical-title" [attr.aria-busy]="state() === 'loading' || state() === 'finalizing'">
+  <h1 id="clinical-title">Clinical assessment</h1>
+  <p class="intro">Select the clinical LS assigned by the specialist using the study protocol.</p>
+  <p class="hint">CarcinoIndex does not infer LS from the segmentation.</p>
+  @if (loadError()) { <p role="alert" class="error">Evaluation retrieval failed. {{ loadError() }}</p> }
+  @if (state() === 'loading') { <p role="status">Loading persisted evaluation...</p> }
+  @if (state() === 'error') { <button type="button" (click)="refreshEvaluation()">Retry</button> }
+  @if (evaluation(); as record) {
+    <div class="assessment">
+      <div>
+        @if (state() === 'editing') {
+          <form [formGroup]="form" (ngSubmit)="reviewAssessment()">
+            <fieldset aria-describedby="ls-help" [attr.aria-invalid]="form.controls.clinicalLs.touched && form.controls.clinicalLs.invalid">
+              <legend>Clinical LS (required)</legend>
+              @for (ls of lsChoices; track ls) {
+                <label class="ls-choice"><input type="radio" formControlName="clinicalLs" [value]="ls" aria-describedby="ls-help" /> LS {{ ls }}</label>
+              }
+              <p id="ls-help" class="hint" [class.error]="form.controls.clinicalLs.touched && form.controls.clinicalLs.invalid">
+                @if (form.controls.clinicalLs.touched && form.controls.clinicalLs.invalid) { Select a clinical LS from 0 to 3. }
+                @else { No LS is selected automatically. }
+              </p>
+            </fieldset>
+            <div class="field">
+              <label for="confidence">Optional annotator confidence (%)</label>
+              <input id="confidence" type="number" min="0" max="100" step="any" formControlName="confidencePercent"
+                aria-describedby="confidence-help confidence-error" [attr.aria-invalid]="form.controls.confidencePercent.touched && form.controls.confidencePercent.invalid" />
+              <p id="confidence-help" class="hint">This is your confidence in the clinical LS assessment, not a SAM confidence score. Leave blank or enter 0 to 100.</p>
+              <p id="confidence-error" class="error">
+                @if (form.controls.confidencePercent.touched && form.controls.confidencePercent.invalid) { Enter a number from 0 to 100, or leave blank. }
+              </p>
+            </div>
+            <button class="primary-button" type="submit">Review assessment</button>
+          </form>
+        }
+        @if (state() === 'reviewing' || state() === 'finalizing') {
+          @if (review(); as snapshot) {
+            <h2>Review assessment</h2>
+            <dl>
+              <dt>PCI region</dt><dd>{{ record.pci_region_id }}</dd>
+              <dt>Clinical LS</dt><dd>LS {{ snapshot.clinical_ls }}</dd>
+              <dt>Annotator confidence</dt><dd>{{ snapshot.annotator_confidence === null ? 'Not provided' : (snapshot.annotator_confidence | percent:'1.0-12') }}</dd>
+            </dl>
+            <p>Finalization is irreversible in the current prototype. Review these values before finalizing.</p>
+            @if (finalizationError()) {
+              <p role="alert" class="error">{{ finalizationError() }} The request may have reached the backend. Refresh evaluation state to check the persisted result.</p>
+            }
+            <div class="actions">
+              <button type="button" (click)="backToEdit()" [disabled]="state() === 'finalizing'">Back to edit</button>
+              <button class="primary-button" type="button" (click)="finalize()" [disabled]="state() === 'finalizing'">Finalize evaluation</button>
+              @if (finalizationError() || loadError()) {
+                <button type="button" (click)="refreshEvaluation()">Refresh evaluation state</button>
+              }
+            </div>
+          }
+        }
+        @if (state() === 'finalizing') { <p role="status">Finalizing evaluation...</p> }
+        @if (state() === 'finalized') {
+          <h2 role="status">Clinical assessment finalized</h2>
+          <dl>
+            <dt>PCI region</dt><dd>{{ record.pci_region_id }}</dd>
+            <dt>Clinical LS</dt><dd>LS {{ record.clinical_ls }}</dd>
+            <dt>Annotator confidence</dt><dd>{{ record.annotator_confidence === null ? 'Not provided' : (record.annotator_confidence | percent:'1.0-12') }}</dd>
+            <dt>Status</dt><dd>Finalized</dd>
+          </dl>
+          <p>The clinical LS was supplied by the specialist.</p>
+          <p>Finalization is irreversible in the current prototype. This assessment is read-only.</p>
+        }
+      </div>
+      <aside aria-labelledby="context-title">
+        <h2 id="context-title">Assessment context</h2>
+        <dl>
+          <dt>PCI region</dt><dd>{{ record.pci_region_id }}</dd>
+          <dt>Status</dt><dd>{{ record.status === 'finalized' ? 'Finalized' : 'Draft' }}</dd>
+        </dl>
+        <p>Finalizing this Evaluation does not accept, validate, or select a segmentation mask.</p>
+        <p>This finalizes the selected regional Evaluation; it does not represent a complete 13-region PCI score.</p>
+      </aside>
+    </div>
+  }
+</section>

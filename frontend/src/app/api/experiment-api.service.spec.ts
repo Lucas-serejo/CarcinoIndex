@@ -25,6 +25,30 @@ describe('ExperimentApiService', () => {
     vi.useRealTimers();
   });
 
+  it.each([0.73, null])('finalizes with only the JSON clinical contract (confidence %s) and no timeout', async confidence => {
+    vi.useFakeTimers();
+    const body = { clinical_ls: 2, annotator_confidence: confidence };
+    const result = firstValueFrom(service.finalizeEvaluation('evaluation-1', body));
+    const request = http.expectOne('/api/v1/evaluations/evaluation-1/finalize');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).not.toBeInstanceOf(FormData);
+    expect(request.request.body).toEqual(body);
+    expect(Object.keys(request.request.body as object)).toEqual(['clinical_ls', 'annotator_confidence']);
+    await vi.advanceTimersByTimeAsync(120000);
+    expect(request.cancelled).toBe(false);
+    request.flush({ evaluation_id: 'evaluation-1', status: 'finalized', ...body });
+    expect((await result).status).toBe('finalized');
+  });
+
+  it.each([404, 409, 422, 500])('maps safe finalization errors for HTTP %s', async status => {
+    const result = firstValueFrom(service.finalizeEvaluation('evaluation-1', { clinical_ls: 2, annotator_confidence: null }));
+    const assertion = expect(result).rejects.toThrow('Safe finalization message.');
+    http.expectOne('/api/v1/evaluations/evaluation-1/finalize').flush(
+      { error: { code: 'failed', message: 'Safe finalization message.' } }, { status, statusText: 'Failure' },
+    );
+    await assertion;
+  });
+
   it('retrieves a persisted evaluation', async () => {
     const result = firstValueFrom(service.getEvaluation('evaluation-1'));
     const request = http.expectOne('/api/v1/evaluations/evaluation-1');

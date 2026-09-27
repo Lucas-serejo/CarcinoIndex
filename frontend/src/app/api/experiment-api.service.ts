@@ -2,7 +2,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { catchError, from, map, mergeMap, Observable, throwError, timeout } from 'rxjs';
 import {
-  ApiErrorResponse, HealthResponse, RegionsResponse, CreateCaseRequest,
+  ApiErrorResponse, HealthResponse, RegionsResponse, CreateCaseRequest, FinalizeEvaluationRequest,
   CaseResponse, ImageResponse, CreateEvaluationRequest, EvaluationResponse, ImageBox, PersistedSegmentationResponse,
 } from './api.models';
 
@@ -40,6 +40,11 @@ function isApiErrorResponse(value: unknown): value is ApiErrorResponse {
 @Injectable({ providedIn: 'root' })
 export class ExperimentApiService {
   private readonly http = inject(HttpClient);
+
+  finalizeEvaluation(evaluationId: string, request: FinalizeEvaluationRequest): Observable<EvaluationResponse> {
+    return this.http.post<EvaluationResponse>(`/api/v1/evaluations/${evaluationId}/finalize`, request)
+      .pipe(catchError(mapApiError));
+  }
 
   getEvaluation(evaluationId: string): Observable<EvaluationResponse> {
     return this.http.get<EvaluationResponse>(`/api/v1/evaluations/${evaluationId}`)
