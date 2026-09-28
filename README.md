@@ -90,7 +90,7 @@ notebooks/     Synthetic SAM checks and exploratory research notes
 scripts/       Local development and SAM feasibility tools
 tests/         CPU-compatible tests and opt-in PostgreSQL/CUDA integration tests
 datasets/      Research data organization; clinical images are not versioned
-experiments/   Local research outputs; checkpoints are not versioned
+experiments/   Offline benchmarks and local outputs; checkpoints are not versioned
 ```
 
 ## Development and technical documentation
@@ -112,6 +112,8 @@ must stay outside version control.
   model, transaction boundaries, and storage limitations.
 - [SAM inference contract](docs/architecture/sam2_inference_contract.md): one
   model instance, one worker, and serialized inference.
+- [ENID segmentation benchmark](experiments/benchmarks/enid/README.md): offline
+  Experiment A, reference box prompts, COCO polygon masks, and Dice/IoU.
 
 CPU-compatible backend tests:
 
