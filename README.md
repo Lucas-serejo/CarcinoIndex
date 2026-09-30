@@ -24,16 +24,22 @@ image pixels without calibration, a physical reference, or depth information.
 Pixel area is not a physical measurement, and the current system implements
 neither physical-size estimation nor depth estimation.
 
-Specialist mask validation/refinement is the planned next scientific stage.
 There are currently no accepted, validated, reference, or ground truth masks in
-the product workflow. Visual review and Evaluation finalization do not establish
-any of these mask states. SAM's selected score is an internal model estimate,
+the product workflow. Visual review and Evaluation finalization do not turn a
+SAM mask into a reference mask or establish any of these mask states.
+SAM's `selected_score` is an internal predicted quality/ranking score,
 not clinical confidence.
 
-Feature extraction helpers and notebooks are exploratory. Feature-versus-LS
-modelling depends on an adequate clinically reviewed dataset and a defined
-process for specialist-validated/corrected masks. No classifier is implemented,
-and no features are computed or persisted by the current clinical workflow.
+The planned next scientific stage is a small target-domain evaluation using
+laparoscopic peritoneal carcinomatosis images, with specialist review of the
+CarcinoIndex segmentation and workflow. The review categories and protocol have
+not yet been finalized. Manual mask correction or reference-mask creation is
+not required by the minimum current TCC protocol.
+
+Feature extraction, including existing helpers and notebooks, and feature-versus-LS
+modelling remain exploratory/future work, outside the required current TCC
+delivery. No classifier is implemented, and no features are computed or persisted
+by the current clinical workflow.
 
 ## Implemented MVP v1 workflow (F1-F4)
 
@@ -90,7 +96,7 @@ notebooks/     Synthetic SAM checks and exploratory research notes
 scripts/       Local development and SAM feasibility tools
 tests/         CPU-compatible tests and opt-in PostgreSQL/CUDA integration tests
 datasets/      Research data organization; clinical images are not versioned
-experiments/   Local research outputs; checkpoints are not versioned
+experiments/   Offline benchmarks and local outputs; checkpoints are not versioned
 ```
 
 ## Development and technical documentation
@@ -112,6 +118,8 @@ must stay outside version control.
   model, transaction boundaries, and storage limitations.
 - [SAM inference contract](docs/architecture/sam2_inference_contract.md): one
   model instance, one worker, and serialized inference.
+- [ENID segmentation benchmark](experiments/benchmarks/enid/README.md): offline
+  Experiment A, reference box prompts, COCO polygon masks, and Dice/IoU.
 
 CPU-compatible backend tests:
 
