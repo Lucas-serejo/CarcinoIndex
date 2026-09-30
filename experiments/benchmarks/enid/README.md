@@ -2,7 +2,7 @@
 
 Pergunta: dada uma lesão laparoscópica localizada por uma bounding box de
 referência, quão semelhante é a máscara do SAM 2.1 Hiera Small à segmentação
-especializada do ENID?
+de referência disponibilizada pelo ENID?
 
 ENID é um proxy laparoscópico de lesões de **endometriose**, não carcinomatose
 peritoneal. A bbox oficial é um **oracle/control prompt**: este experimento
@@ -50,8 +50,11 @@ toda a seleção; o benchmark completo é uma etapa posterior à implementação
 e `bfloat16`. Não há fallback automático de CUDA para CPU.
 
 Use um diretório de saída novo/vazio em cada execução. Diretórios dentro dos
-inputs ou de `datasets/raw` são recusados. Datasets e outputs permanecem locais
-e ignorados pelo Git.
+inputs ou de `datasets/raw`, assim como diretórios de saída não vazios, são
+recusados na pré-validação, antes de inicializar os outputs experimentais.
+Esses erros encerram a CLI com código não zero e mensagem no stderr, sem iniciar
+uma execução do benchmark nem gerar novos arquivos de resumo ou resultados.
+Datasets e outputs permanecem locais e ignorados pelo Git.
 
 - `results.csv`: uma linha por annotation, IDs, split, grupo, filename relativo,
   dimensões, bbox, quantidade de polygons, áreas, Dice/IoU e seleção/tempo do SAM.
@@ -60,10 +63,13 @@ e ignorados pelo Git.
   checkpoint, modelo/config/device/dtype, versões de pacotes, política de seleção,
   médias e medianas por annotation (overall e por split) e tempo total, incluindo
   validação, hashing, carregamento e inferência. Não é uma estimativa por paciente.
-- Falhas encerram com código não zero, mensagem no stderr e resumo `incomplete`.
-  Resultados parciais ficam em `results.incomplete.csv`; não são resultados de uma
-  execução completa. `failure_count` conta o evento fatal (inclusive erro de
-  configuração), `success_count` conta linhas concluídas. `images_processed`
+- Após a inicialização dos outputs, falhas de configuração, dados ou inferência
+  encerram a CLI com código não zero e mensagem no stderr. O runner registra
+  resumo `incomplete` e preserva `results.incomplete.csv`, quando criado; o CSV
+  pode conter apenas o cabeçalho se nenhuma annotation foi concluída. Esse
+  registro depende de a saída continuar gravável. Resultados parciais não são
+  resultados de uma execução completa. `failure_count` conta o evento fatal
+  (inclusive erro de configuração), `success_count` conta linhas concluídas. `images_processed`
   conta imagens com pelo menos uma annotation concluída. O resumo identifica
   etapa/IDs/tipo do erro sem persistir caminhos absolutos.
 
