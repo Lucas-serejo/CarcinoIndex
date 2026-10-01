@@ -120,6 +120,8 @@ must stay outside version control.
   model instance, one worker, and serialized inference.
 - [ENID segmentation benchmark](experiments/benchmarks/enid/README.md): offline
   Experiment A, reference box prompts, COCO polygon masks, and Dice/IoU.
+- [ENID quantitative analysis](experiments/analysis/enid/README.md): reproducible
+  descriptive summaries and exploratory figures from completed benchmark CSVs.
 
 CPU-compatible backend tests:
 
