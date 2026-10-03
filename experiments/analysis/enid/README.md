@@ -140,7 +140,12 @@ The separate renderer recreates masks for **every unique annotation** supplied
 by `extreme_cases.csv`. These are deliberately selected quantitative extremes,
 not representative samples of all ENID. There is no interactive selection or
 visual filtering. Duplicate annotation IDs trigger only one prediction and one
-figure; all supplied reason/rank pairs (including repeated rows) are retained.
+figure; all verified reason/rank pairs are retained. Before creating outputs,
+`extreme_cases.csv` is verified against the selection recomputed from the
+authoritative `results.csv` using the existing quantitative `extreme_cases()`
+function. The exact annotation ID/reason/rank tuples must match, including row
+multiplicity: substituted annotations, changed reasons or ranks, missing rows,
+and extra rows are rejected. Input row order does not affect verification.
 Pairs are sorted by reason then numeric rank and stored as aligned JSON arrays
 in `selection_reasons` and `selection_ranks` in `cases.csv`.
 
@@ -182,7 +187,11 @@ The rerun exists only to recreate masks for visualization. `results.csv` remains
 the authoritative numerical record and is never overwritten. Existing
 `overlap_metrics()` computes rerun Dice/IoU for provenance only. Absolute Dice
 or IoU differences **greater than 1e-6**, or a different selected index, abort
-the run. Canonical reference area must also match the benchmark. Both scores
+the run. Both canonical reference area and rerun predicted mask area must
+exactly match the benchmark. The consistency contract therefore checks reference
+area, predicted area, Dice, IoU, and selected index. `cases.csv` records
+`benchmark_predicted_area_pixels`, `rerun_predicted_area_pixels`, and the absolute
+`predicted_area_pixel_delta` (zero for matching runs). Both scores
 and their absolute difference are recorded without requiring bit equality;
 small floating-point score differences can occur. This adds no segmentation
 metric and is not a second quantitative experiment.

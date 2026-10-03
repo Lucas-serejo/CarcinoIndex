@@ -44,12 +44,8 @@ def research(tmp_path):
                          selected_index=1, selected_score=0.8, prediction_time_seconds=0.01))
     results, cases, checkpoint = (tmp_path / name for name in ("results.csv", "extremes.csv", "fake.pt"))
     pd.DataFrame(rows).to_csv(results, index=False)
-    selections = [dict(rows[2], selection_reason="highest_dice", rank=2),
-                  dict(rows[0], selection_reason="lowest_dice", rank=1),
-                  dict(rows[1], selection_reason="lowest_dice", rank=2),
-                  dict(rows[0], selection_reason="highest_dice", rank=1),
-                  dict(rows[0], selection_reason="lowest_dice", rank=1)]
-    pd.DataFrame(selections).to_csv(cases, index=False)
+    # Reversed source order must not change the verified selection or output order.
+    q.extreme_cases(q.load_results(results)).iloc[::-1].to_csv(cases, index=False)
     checkpoint.write_bytes(b"synthetic checkpoint")
 
     class Fake:
@@ -105,19 +101,22 @@ def test_artifacts_provenance_and_lifecycle(research, monkeypatch):
     monkeypatch.setattr(q, "overlap_metrics", measured)
     manifest = q.render_cases(**research)
     assert manifest["status"] == "complete"
-    assert manifest["selection_rows"] == 5 and manifest["unique_annotations_rendered"] == 3
+    assert manifest["selection_rows"] == 9 and manifest["unique_annotations_rendered"] == 3
     assert manifest["selected_annotation_ids"] == [1, 2, 3]
     assert research["segmenter_factory"].calls == ["load", "set", 1, 3, "clear", "set", 2, "clear", "close"]
     output = research["output"]
     frame = pd.read_csv(output / "cases.csv")
     assert frame.annotation_id.tolist() == [1, 2, 3]
-    assert json.loads(frame.iloc[0].selection_reasons) == ["highest_dice", "lowest_dice", "lowest_dice"]
+    assert json.loads(frame.iloc[0].selection_reasons) == [
+        "highest_dice", "largest_predicted_reference_area_ratio", "lowest_dice"]
     assert json.loads(frame.iloc[0].selection_ranks) == [1, 1, 1]
     assert (frame.dice_abs_delta == 0).all() and (frame.iou_abs_delta == 0).all()
     assert (frame.selected_score_abs_delta > 0).all()
     for row, (prediction, reference) in zip(frame.to_dict("records"), calls):
         assert reference.sum() == 4
         assert row["benchmark_predicted_area_pixels"] == 5
+        assert row["rerun_predicted_area_pixels"] == int(prediction.sum()) == 5
+        assert row["predicted_area_pixel_delta"] == 0
         for key in ("comparison_path", "reference_mask_path", "sam_mask_path"):
             assert not Path(row[key]).is_absolute()
             assert (output / row[key]).stat().st_size > 0
@@ -152,6 +151,29 @@ def test_invalid_cases(research, field, value):
         q.render_cases(**research)
 
 
+@pytest.mark.parametrize("alteration", ["annotation", "reason", "rank", "missing", "extra"])
+def test_altered_quantitative_selection_fails_before_outputs(research, alteration):
+    frame = pd.read_csv(research["cases"])
+    if alteration == "annotation":
+        # Substitute a valid benchmark annotation, including its matching identity.
+        replacement = pd.read_csv(research["results"]).iloc[0]
+        for field in ("annotation_id", *q.IDENTITY):
+            frame.loc[0, field] = replacement[field]
+    elif alteration == "reason":
+        frame.loc[0, "selection_reason"] = "smallest_predicted_reference_area_ratio"
+    elif alteration == "rank":
+        frame.loc[0, "rank"] = 99
+    elif alteration == "missing":
+        frame = frame.iloc[1:]
+    else:
+        frame = pd.concat([frame, frame.iloc[:1]])
+    frame.to_csv(research["cases"], index=False)
+    with pytest.raises(ValueError, match="deterministic quantitative selection"):
+        q.render_cases(**research)
+    assert not research["output"].exists()
+    assert research["segmenter_factory"].calls == []
+
+
 @pytest.mark.parametrize("column", ["dice", "iou", "reference_area_pixels", "predicted_area_pixels",
                                     "selected_index", "selected_score"])
 @pytest.mark.parametrize("invalid", ["missing", "nan"])
@@ -178,7 +200,7 @@ def test_missing_canonical_annotation(research):
 
 
 @pytest.mark.parametrize("field,delta", [("dice", 0.5e-6), ("iou", 0.5e-6),
-    ("dice", 2e-6), ("iou", 2e-6), ("selected_index", 1)])
+    ("dice", 2e-6), ("iou", 2e-6), ("selected_index", 1), ("predicted_area_pixels", 1)])
 def test_consistency(research, field, delta):
     rewrite(research["results"], lambda f: f.assign(**{field: f[field] + delta}))
     if delta < q.TOLERANCE:

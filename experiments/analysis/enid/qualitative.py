@@ -21,7 +21,7 @@ from experiments.benchmarks.enid.dataset import (
     SPLITS, load_samples, overlap_metrics, reference_mask, xywh_to_xyxy,
 )
 from experiments.benchmarks.enid.runner import sha256_file
-from .analysis import load_results
+from .analysis import extreme_cases, load_results
 
 TOLERANCE = 1e-6
 REASONS = (
@@ -34,7 +34,7 @@ ALPHA = 0.5
 
 
 def load_cases(source, results: pd.DataFrame) -> tuple[int, dict]:
-    """Preserve every reason/rank pair, including repeated selection rows."""
+    """Verify the quantitative selection and preserve every reason/rank pair."""
     frame = pd.read_csv(source, dtype=str, keep_default_na=False)
     required = {"annotation_id", *IDENTITY, "selection_reason", "rank"}
     if missing := required - set(frame.columns):
@@ -57,6 +57,11 @@ def load_cases(source, results: pd.DataFrame) -> tuple[int, dict]:
         if any(row[k] != authoritative[aid][k] for k in IDENTITY):
             raise ValueError(f"Cases identity disagrees with results for annotation {aid}.")
         selections.setdefault(aid, []).append((row["selection_reason"], row["rank"]))
+    columns = ["annotation_id", "selection_reason", "rank"]
+    supplied = sorted(frame[columns].itertuples(index=False, name=None))
+    expected = sorted(extreme_cases(results)[columns].itertuples(index=False, name=None))
+    if supplied != expected:
+        raise ValueError("Cases must match the deterministic quantitative selection from results.")
     return len(frame), {aid: sorted(pairs) for aid, pairs in sorted(selections.items())}
 
 
@@ -184,7 +189,9 @@ def render_cases(*, dataset_root: Path, split_root: Path, results: Path, cases: 
                        selection_ranks=json.dumps([p[1] for p in pairs]),
                        **dict(zip(("bbox_x", "bbox_y", "bbox_width", "bbox_height"), sample.bbox_xywh)),
                        reference_area_pixels=record["reference_area_pixels"],
-                       benchmark_predicted_area_pixels=record["predicted_area_pixels"])
+                       benchmark_predicted_area_pixels=record["predicted_area_pixels"],
+                       rerun_predicted_area_pixels=int(prediction.sum()),
+                       predicted_area_pixel_delta=abs(int(prediction.sum()) - record["predicted_area_pixels"]))
             for key, value in (("dice", metrics["dice"]), ("iou", metrics["iou"]),
                                ("selected_index", index), ("selected_score", score)):
                 row[f"benchmark_{key}"] = record[key]
@@ -192,7 +199,7 @@ def render_cases(*, dataset_root: Path, split_root: Path, results: Path, cases: 
                 if key != "selected_index":
                     row[f"{key}_abs_delta"] = abs(record[key] - value)
             if (row["dice_abs_delta"] > TOLERANCE or row["iou_abs_delta"] > TOLERANCE
-                    or index != record["selected_index"]):
+                    or index != record["selected_index"] or row["predicted_area_pixel_delta"] != 0):
                 raise ValueError(f"Rerun consistency mismatch for annotation {aid}.")
             if metrics["reference_area_pixels"] != record["reference_area_pixels"]:
                 raise ValueError(f"Canonical reference area mismatch for annotation {aid}.")
