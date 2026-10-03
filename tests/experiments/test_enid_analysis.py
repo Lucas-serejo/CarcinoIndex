@@ -1,5 +1,6 @@
 """Synthetic CPU-only checks for the post-benchmark analysis contract."""
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -109,9 +110,10 @@ def test_splits_bins_and_candidates(tmp_path, rows):
     cases = extreme_cases(frame)
     assert cases.groupby("selection_reason").annotation_id.apply(list).to_dict() == {
         "lowest_dice": [1, 2, 3, 4, 5], "highest_dice": [6, 5, 4, 3, 2],
-        "relative_under_segmentation": [1, 2], "relative_over_segmentation": [5, 6, 4],
+        "smallest_predicted_reference_area_ratio": [1, 2],
+        "largest_predicted_reference_area_ratio": [5, 6, 4],
     }
-    assert cases[cases.selection_reason == "relative_over_segmentation"].area_ratio.tolist() == [3, 3, 2]
+    assert cases[cases.selection_reason == "largest_predicted_reference_area_ratio"].area_ratio.tolist() == [3, 3, 2]
     assert "bbox_x" in cases and "polygon_count" in cases
     tied = frame.copy()
     tied["dice"] = .5
@@ -123,7 +125,6 @@ def test_artifacts_and_reproducibility(tmp_path, rows):
     original = source.read_bytes()
     first, second = tmp_path / "first", tmp_path / "second"
     summary = analyze_results(results=source, output=first)
-    write_results(tmp_path, rows.sample(frac=1, random_state=3))
     second.mkdir()
     assert analyze_results(results=source, output=second) == summary
     names = {"descriptive_summary.json", "descriptive_by_split.csv", "dice_distribution.csv",
@@ -136,11 +137,38 @@ def test_artifacts_and_reproducibility(tmp_path, rows):
             assert (first / name).read_bytes() == (second / name).read_bytes()
     assert json.loads((first / "descriptive_summary.json").read_text(),
                       parse_constant=lambda v: pytest.fail(f"Invalid JSON constant {v}")) == summary
-    write_results(tmp_path, rows)
     assert source.read_bytes() == original
     with pytest.raises(ValueError, match="must be empty"):
         analyze_results(results=source, output=first)
     assert (first / "descriptive_summary.json").read_bytes() == (second / "descriptive_summary.json").read_bytes()
+
+
+@pytest.mark.parametrize("change", ["line_endings", "row_order"])
+def test_source_hash_tracks_exact_input_bytes(tmp_path, rows, change):
+    source = write_results(tmp_path, rows)
+    original = source.read_bytes()
+    first = analyze_results(results=source, output=tmp_path / "first")
+    assert first["source"] == {"filename": "results.csv", "sha256": hashlib.sha256(original).hexdigest()}
+    if change == "line_endings":
+        changed = original.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+        if changed == original:
+            changed = original.replace(b"\r\n", b"\n")
+        source.write_bytes(changed)
+    else:
+        write_results(tmp_path, rows.sample(frac=1, random_state=3))
+    changed = source.read_bytes()
+    assert changed != original
+    second = analyze_results(results=source, output=tmp_path / "second")
+    assert second["source"] == {"filename": "results.csv", "sha256": hashlib.sha256(changed).hexdigest()}
+    assert second["source"]["sha256"] != first["source"]["sha256"]
+    for name, result in (("first", first), ("second", second)):
+        assert json.loads((tmp_path / name / "descriptive_summary.json").read_text()) == result
+    assert {k: v for k, v in first.items() if k != "source"} == {
+        k: v for k, v in second.items() if k != "source"
+    }
+    for name in ("descriptive_by_split.csv", "dice_distribution.csv", "extreme_cases.csv"):
+        assert (tmp_path / "first" / name).read_bytes() == (tmp_path / "second" / name).read_bytes()
+    assert source.read_bytes() == changed
 
 
 @pytest.mark.parametrize("single", [True, False])

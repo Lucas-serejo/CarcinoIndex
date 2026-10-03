@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+from io import BytesIO
 from pathlib import Path
 
 import numpy as np
@@ -21,7 +23,7 @@ BINS = (0.0, 0.5, 0.7, 0.8, 0.9, 1.0)
 BIN_LABELS = ("[0.0, 0.5)", "[0.5, 0.7)", "[0.7, 0.8)", "[0.8, 0.9)", "[0.9, 1.0]")
 
 
-def load_results(path: Path) -> pd.DataFrame:
+def load_results(path: Path | BytesIO) -> pd.DataFrame:
     """Validate without discarding optional bbox/polygon or other columns."""
     frame = pd.read_csv(path, dtype=str, keep_default_na=False)
     missing = sorted(set(REQUIRED) - set(frame.columns))
@@ -127,8 +129,8 @@ def extreme_cases(frame: pd.DataFrame) -> pd.DataFrame:
     for reason, subset, column, ascending in (
         ("lowest_dice", frame, "dice", True),
         ("highest_dice", frame, "dice", False),
-        ("relative_under_segmentation", frame[frame.area_ratio < 1], "area_ratio", True),
-        ("relative_over_segmentation", frame[frame.area_ratio > 1], "area_ratio", False),
+        ("smallest_predicted_reference_area_ratio", frame[frame.area_ratio < 1], "area_ratio", True),
+        ("largest_predicted_reference_area_ratio", frame[frame.area_ratio > 1], "area_ratio", False),
     ):
         selected = subset.sort_values([column, "annotation_id"], ascending=[ascending, True]).head(5).copy()
         selected.insert(0, "rank", range(1, len(selected) + 1))
@@ -164,8 +166,10 @@ def _figures(frame: pd.DataFrame, summary: dict, output: Path) -> None:
         if name == "reference_area_pixels":
             ax.set_xscale("log")
         correlations = summary["correlations"][f"{name}_vs_dice"]
-        text = "\n".join(f"{key.capitalize()}: {value:.3f}" if value is not None
-                         else f"{key.capitalize()}: undefined" for key, value in correlations.items())
+        labels = {"pearson": "Pearson (raw area)" if name == "reference_area_pixels" else "Pearson",
+                  "spearman": "Spearman"}
+        text = "\n".join(f"{labels[key]}: {value:.3f}" if value is not None
+                         else f"{labels[key]}: undefined" for key, value in correlations.items())
         ax.text(0.03, 0.03, text, transform=ax.transAxes, fontsize=9,
                 bbox={"facecolor": "white", "alpha": 0.85, "edgecolor": "none"})
         save(fig, "selected_score_vs_dice" if name == "selected_score" else "reference_area_vs_dice")
@@ -176,8 +180,10 @@ def analyze_results(*, results: Path, output: Path) -> dict:
     results, output = Path(results), Path(output)
     if output.exists() and (not output.is_dir() or any(output.iterdir())):
         raise ValueError("Output directory must be empty; use a new analysis directory.")
-    frame = load_results(results)
+    source_bytes = results.read_bytes()
+    frame = load_results(BytesIO(source_bytes))
     summary = summarize(frame)
+    summary["source"] = {"filename": results.name, "sha256": hashlib.sha256(source_bytes).hexdigest()}
     serialized = json.dumps(summary, indent=2, sort_keys=True, allow_nan=False) + "\n"
     output.mkdir(parents=True, exist_ok=True)
     (output / "descriptive_summary.json").write_text(serialized, encoding="utf-8")

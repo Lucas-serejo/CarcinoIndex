@@ -75,24 +75,34 @@ intervals, regression, or causal interpretations are produced.
 | `dice_distribution.png` | Annotation-level Dice histogram, 20 equal bins on [0, 1], dashed median. |
 | `iou_distribution.png` | Corresponding annotation-level IoU histogram. |
 | `selected_score_vs_dice.png` | Scatter with linear score axis and Pearson/Spearman annotations. |
-| `reference_area_vs_dice.png` | Scatter with logarithmic area axis and Pearson/Spearman annotations. Correlations still use raw area values/ranks, not log-transformed area. |
+| `reference_area_vs_dice.png` | Scatter with logarithmic area axis and Pearson/Spearman annotations. Pearson is labelled `Pearson (raw area)`; correlations still use raw area values/ranks, not log-transformed area. |
+
+`descriptive_summary.json` also records `source.filename` (the input basename,
+without an absolute path) and `source.sha256` (SHA-256 of the exact input CSV
+bytes). The same byte snapshot is hashed and parsed. Changes to line endings,
+row order, or other input bytes change the hash even if statistics are unchanged.
 
 Quartiles use linear interpolation at positions `(n - 1) * q` in sorted values.
 Standard deviation describes the supplied population of annotations, so it is
 zero for one row. JSON uses sorted keys and rejects NaN/Infinity serialization.
-Rows are sorted by annotation ID before computation, making summaries invariant
-to input row order. Figures use the non-interactive Agg canvas, fixed size and
+Rows are sorted by annotation ID before computation, making statistics invariant
+to input row order; source provenance still reflects the exact input bytes.
+Figures use the non-interactive Agg canvas, fixed size and
 styling. Identical environments yield reproducible artifacts; rendering and
 floating-point details can vary across library/font versions.
 
 Candidates use one row per selection reason, with ranks starting at 1 within
-each reason. An annotation can therefore appear multiple times. Numeric
+each reason: `lowest_dice`, `highest_dice`,
+`smallest_predicted_reference_area_ratio` (ratios strictly below 1), and
+`largest_predicted_reference_area_ratio` (ratios strictly above 1).
+An annotation can therefore appear multiple times. Numeric
 annotation ID ascending breaks all ties. Categories can contain fewer than five
 rows, or none for area ratios. `area_ratio = predicted_area_pixels /
 reference_area_pixels`; values below/above 1 indicate smaller/larger predicted
 area than reference. Equal-area annotations are excluded from these two
-categories. Area ratio alone does not establish segmentation correctness or
-spatial containment. All required input fields, optional columns, area ratio,
+categories. Area ratio alone does not establish segmentation correctness,
+spatial containment, under-segmentation, or over-segmentation.
+All required input fields, optional columns, area ratio,
 selection reason and rank are available for later inspection.
 
 **Qualitative analysis is not part of this iteration.** The candidate list only
