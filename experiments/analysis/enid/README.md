@@ -105,8 +105,8 @@ spatial containment, under-segmentation, or over-segmentation.
 All required input fields, optional columns, area ratio,
 selection reason and rank are available for later inspection.
 
-**Qualitative analysis is not part of this iteration.** The candidate list only
-supports later visual inspection; no cases are labelled clinically good or bad.
+The candidate list supports the separate qualitative renderer below; no cases
+are labelled clinically good or bad.
 
 ## Interpretation limits
 
@@ -133,3 +133,94 @@ python -m pytest -q -ra -m "not sam2_integration and not sam2_api_integration"
 
 Tests use temporary synthetic CSV files and headless figures; no real ENID or
 benchmark output is required.
+
+## Qualitative inspection of selected extremes
+
+The separate renderer recreates masks for **every unique annotation** supplied
+by `extreme_cases.csv`. These are deliberately selected quantitative extremes,
+not representative samples of all ENID. There is no interactive selection or
+visual filtering. Duplicate annotation IDs trigger only one prediction and one
+figure; all supplied reason/rank pairs (including repeated rows) are retained.
+Pairs are sorted by reason then numeric rank and stored as aligned JSON arrays
+in `selection_reasons` and `selection_ranks` in `cases.csv`.
+
+```powershell
+python scripts/render_enid_qualitative_cases.py `
+  --dataset-root datasets/raw/enid/ENID_v1.0_dataset `
+  --split-root datasets/raw/enid_split/ENID_v1.0_dataset `
+  --results experiments/outputs/enid-full-01/results.csv `
+  --cases experiments/outputs/enid-analysis-01/extreme_cases.csv `
+  --checkpoint ../sam2/checkpoints/sam2.1_hiera_small.pt `
+  --output experiments/outputs/enid-qualitative-01 `
+  --device cuda `
+  --dtype float32
+```
+
+`--model-config` defaults to `DEFAULT_MODEL_CONFIG`. Match the original run's
+checkpoint, config, device and dtype. No dependency is added. Synthetic tests
+run on CPU without SAM, CUDA, real ENID or a real checkpoint; actual rendering
+requires the same SAM environment as the benchmark.
+
+The renderer validates the authoritative results using the existing analysis
+validator, including unique annotation IDs and finite metrics, areas, selected
+index and selected score. Cases require annotation/image IDs, file name, split,
+group ID, one of the four documented reasons, and a positive integer rank.
+Every case must match results and canonical COCO identity. Canonical data and
+official splits are validated by `load_samples(..., split="all")`.
+
+Unique annotations and output rows are ordered by annotation ID. To reuse one
+`set_image()` embedding per image, inference visits images in first occurrence
+order and predicts their selected annotations in ascending ID order. Selected
+results for later IDs are cached until their turn in global rendering order.
+Images are dimension-checked and converted to RGB uint8 without resizing.
+Canonical polygons provide reference masks; `annots/*.png` is never used.
+The oracle/reference XYWH bbox is converted to XYXY; `multimask_output=True`
+and exactly `result.selected_mask` preserve highest-SAM-score selection.
+Reference overlap never chooses a SAM candidate. No post-processing is applied.
+
+The rerun exists only to recreate masks for visualization. `results.csv` remains
+the authoritative numerical record and is never overwritten. Existing
+`overlap_metrics()` computes rerun Dice/IoU for provenance only. Absolute Dice
+or IoU differences **greater than 1e-6**, or a different selected index, abort
+the run. Canonical reference area must also match the benchmark. Both scores
+and their absolute difference are recorded without requiring bit equality;
+small floating-point score differences can occur. This adds no segmentation
+metric and is not a second quantitative experiment.
+
+Use a new directory under ignored `experiments/outputs/`. An absent or empty
+directory is accepted; a non-empty directory is rejected. Dataset and split
+directories are protected from output writes. Validation failures before output
+creation leave no artifacts. Later failures leave an `incomplete` manifest and
+possibly partial images: these must not be treated as a completed run. Correct
+the issue and choose a new output directory.
+
+| Artifact | Contract |
+| --- | --- |
+| `manifest.json` | Completion status, UTC timestamp, selection-row and rendered-annotation counts, sorted selected IDs, model/config, checkpoint basename, device/dtype, selection policy, tolerance, package versions, SHA-256 of both exact input CSV byte snapshots, canonical COCO, each official split JSON and checkpoint. No absolute paths or exception text. |
+| `cases.csv` | One row per unique annotation: identity, all selection reasons/ranks, canonical XYWH bbox, benchmark reference/predicted areas, benchmark and rerun Dice/IoU/index/score, absolute metric/score deltas, and relative artifact paths. Written only after all figures pass consistency checks. |
+| `cases/annotation_000001/comparison.png` | Four full-frame panels: original with official bbox, ENID reference overlay, SAM selected-mask overlay, and both/reference-only/SAM-only pixels with legend. The ID uses at least six digits solely for file ordering. |
+| `cases/annotation_000001/reference_mask.png` and `sam_mask.png` | Original-dimension binary 8-bit masks: background 0, mask 255. No standalone original image is copied. |
+
+Figures use the non-interactive Agg canvas, a fixed colorblind-conscious palette
+(green for intersection, blue for reference-only, vermilion for SAM-only), and
+0.5 overlay opacity throughout. Full image geometry and context are retained;
+there is no bbox crop. Titles report factual benchmark values. Plot rendering
+can vary across library/font versions; plot pixels are not tested for equality.
+All generated images, masks and tables are local research artifacts, never
+repository inputs. Do not commit these artifacts or checkpoints.
+
+Scientific limits remain unchanged: ENID depicts endometriosis lesions, **not
+peritoneal carcinomatosis**. Localization remains oracle/reference-derived,
+not autonomous detection. Generated images are not clinical validation. Area
+ratio extremes alone do not prove under-segmentation or over-segmentation.
+Visual inspection may describe apparent error patterns but does not establish
+causality. Selected score remains an internal SAM ranking/quality estimate,
+not clinical confidence. This protocol makes no conclusions about real images
+and does not prescribe a thesis interpretation or final figure subset.
+
+```powershell
+python -m pytest tests/experiments/test_enid_qualitative.py -q
+python -m pytest -q -ra -m "not sam2_integration and not sam2_api_integration"
+```
+
+CI should run only synthetic tests, never real ENID/SAM qualitative rendering.
