@@ -59,6 +59,12 @@ def create_evaluation(api):
     return response.json()
 
 
+def create_review(api, eid, quality="adequate"):
+    response = api.client.post(f"/api/v1/evaluations/{eid}/segmentations", data=BOX)
+    assert response.status_code == 201, response.text
+    return {"reviewed_attempt_id": response.json()["attempt_id"], "segmentation_quality": quality}
+
+
 def test_case_creation_persists_and_duplicate_codes_are_allowed(api):
     ids = [create_case(api), create_case(api)]
     assert ids[0] != ids[1]
@@ -164,6 +170,7 @@ def test_database_failure_deletes_only_new_image(api, stage):
 
 def test_draft_defaults(api):
     body = create_evaluation(api)
+    assert body["reviewed_attempt_id"] is body["segmentation_quality"] is None
     assert body["status"] == "draft"
     assert body["clinical_ls"] is body["annotator_confidence"] is body["finalized_at"] is None
     with api.sessions() as session:
@@ -191,15 +198,17 @@ def test_missing_image_and_evaluation(api):
     assert api.client.post(f"/api/v1/images/{uuid4()}/evaluations",
                            json={"pci_region_id": 6, "annotator_code": "MED01"}).status_code == 404
     assert api.client.post(f"/api/v1/evaluations/{uuid4()}/finalize",
-                           json={"clinical_ls": 2}).status_code == 404
+                           json={"clinical_ls": 2, "reviewed_attempt_id": str(uuid4()), "segmentation_quality": "adequate"}).status_code == 404
 
 
 @pytest.mark.parametrize("confidence", [None, 0, 0.9, 1])
 @pytest.mark.parametrize("clinical_ls", [0, 1, 2, 3])
-def test_finalize_without_attempts_persists_manual_assessment(api, confidence, clinical_ls):
+@pytest.mark.parametrize("quality", ["adequate", "partially_adequate", "inadequate"])
+def test_finalize_persists_review_and_manual_assessment(api, confidence, clinical_ls, quality):
     evaluation = create_evaluation(api)
     eid = evaluation["evaluation_id"]
-    body = {"clinical_ls": clinical_ls}
+    review = create_review(api, eid, quality)
+    body = {"clinical_ls": clinical_ls, **review}
     if confidence is not None:
         body["annotator_confidence"] = confidence
     response = api.client.post(f"/api/v1/evaluations/{eid}/finalize", json=body)
@@ -207,6 +216,8 @@ def test_finalize_without_attempts_persists_manual_assessment(api, confidence, c
     assert response.json()["status"] == "finalized"
     assert response.json()["clinical_ls"] == clinical_ls
     assert response.json()["annotator_confidence"] == confidence
+    assert response.json()["reviewed_attempt_id"] == review["reviewed_attempt_id"]
+    assert response.json()["segmentation_quality"] == quality
     assert response.json()["finalized_at"] is not None
     assert api.client.post(f"/api/v1/evaluations/{eid}/finalize", json=body).status_code == 409
     with api.sessions() as session:
@@ -214,7 +225,9 @@ def test_finalize_without_attempts_persists_manual_assessment(api, confidence, c
         record = repo.get_evaluation(UUID(eid))
         assert record.clinical_ls == clinical_ls and record.annotator_confidence == confidence
         assert record.status == "finalized" and record.finalized_at is not None
-        assert repo.list_attempts(UUID(eid)) == []
+        assert len(repo.list_attempts(UUID(eid))) == 1
+        assert str(record.reviewed_attempt_id) == review["reviewed_attempt_id"]
+        assert record.segmentation_quality == quality
 
 
 @pytest.mark.parametrize("body", [
@@ -224,6 +237,7 @@ def test_finalize_without_attempts_persists_manual_assessment(api, confidence, c
 ])
 def test_invalid_finalization_keeps_draft(api, body):
     eid = create_evaluation(api)["evaluation_id"]
+    body = {**create_review(api, eid), **body}
     assert api.client.post(f"/api/v1/evaluations/{eid}/finalize", json=body).status_code == 422
     with api.sessions() as session:
         assert session.get(Evaluation, UUID(eid)).status == "draft"
@@ -235,7 +249,7 @@ def test_get_persisted_evaluation(api, finalized):
     eid = expected["evaluation_id"]
     if finalized:
         result = api.client.post(f"/api/v1/evaluations/{eid}/finalize",
-                                 json={"clinical_ls": 2, "annotator_confidence": 0.9})
+                                 json={"clinical_ls": 2, "annotator_confidence": 0.9, **create_review(api, eid)})
         assert result.status_code == 200
         expected = result.json()
     response = api.client.get(f"/api/v1/evaluations/{eid}")
@@ -244,6 +258,7 @@ def test_get_persisted_evaluation(api, finalized):
     assert set(response.json()) == {
         "evaluation_id", "image_id", "pci_region_id", "annotator_code", "status",
         "clinical_ls", "annotator_confidence", "created_at", "finalized_at",
+        "reviewed_attempt_id", "segmentation_quality",
     }
     assert response.json()["status"] == ("finalized" if finalized else "draft")
     assert response.json()["clinical_ls"] == (2 if finalized else None)
@@ -351,7 +366,9 @@ def test_complete_http_lifecycle_without_cuda(api):
     assert response.status_code == 201, response.text
     assert response.json()["sequence_number"] == 1
     assert api.client.post(f"/api/v1/evaluations/{eid}/finalize",
-                           json={"clinical_ls": 2, "annotator_confidence": 0.9}).status_code == 200
+                           json={"clinical_ls": 2, "annotator_confidence": 0.9,
+                                 "reviewed_attempt_id": response.json()["attempt_id"],
+                                 "segmentation_quality": "adequate"}).status_code == 200
     assert api.client.post(url, data=BOX).status_code == 409
     assert len(api.fake.calls) == 1
     with api.sessions() as session:
@@ -360,3 +377,38 @@ def test_complete_http_lifecycle_without_cuda(api):
         assert len(attempts) == 1
         assert api.storage.read(attempts[0].mask_storage_path)
         assert repo.get_evaluation(UUID(eid)).clinical_ls == 2
+
+
+@pytest.mark.parametrize("field,value", [
+    ("reviewed_attempt_id", "missing"), ("segmentation_quality", "missing"),
+    ("reviewed_attempt_id", None), ("segmentation_quality", None),
+    ("reviewed_attempt_id", "not-a-uuid"), ("segmentation_quality", "good"),
+    ("segmentation_quality", "Adequate"), ("segmentation_quality", 1),
+    ("selected_score", 0.99),
+])
+def test_invalid_review_contract_keeps_draft(api, field, value):
+    eid = create_evaluation(api)["evaluation_id"]
+    body = {"clinical_ls": 2, **create_review(api, eid)}
+    if value == "missing":
+        del body[field]
+    else:
+        body[field] = value
+    response = api.client.post(f"/api/v1/evaluations/{eid}/finalize", json=body)
+    assert response.status_code == 422
+    record = api.client.get(f"/api/v1/evaluations/{eid}").json()
+    assert record["status"] == "draft"
+    assert record["reviewed_attempt_id"] is record["segmentation_quality"] is None
+
+
+@pytest.mark.parametrize("foreign", [False, True])
+def test_review_must_belong_to_this_evaluation(api, foreign):
+    eid = create_evaluation(api)["evaluation_id"]
+    review = create_review(api, create_evaluation(api)["evaluation_id"]) if foreign else {
+        "reviewed_attempt_id": str(uuid4()), "segmentation_quality": "adequate",
+    }
+    response = api.client.post(f"/api/v1/evaluations/{eid}/finalize", json={"clinical_ls": 2, **review})
+    assert response.status_code == 422
+    assert response.json() == {"error": {
+        "code": "invalid_segmentation_review", "message": "Reviewed attempt must belong to this evaluation.",
+    }}
+    assert api.client.get(f"/api/v1/evaluations/{eid}").json()["status"] == "draft"

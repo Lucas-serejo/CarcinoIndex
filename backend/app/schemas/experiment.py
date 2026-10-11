@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 PseudonymousCode = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=128),
 ]
+SegmentationQuality = Literal["adequate", "partially_adequate", "inadequate"]
 
 
 class CreateCaseRequest(BaseModel):
@@ -45,6 +46,8 @@ class CreateEvaluationRequest(BaseModel):
 class FinalizeEvaluationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    reviewed_attempt_id: UUID
+    segmentation_quality: SegmentationQuality = Field(description="Human qualitative review of the displayed segmentation, not clinical validation or ground truth.")
     clinical_ls: int = Field(strict=True, ge=0, le=3, description="Clinical LS supplied manually by the specialist.")
     annotator_confidence: float | None = Field(default=None, strict=True, ge=0, le=1)
 
@@ -59,5 +62,7 @@ class EvaluationResponse(BaseModel):
     status: Literal["draft", "finalized"]
     clinical_ls: int | None
     annotator_confidence: float | None
+    reviewed_attempt_id: UUID | None
+    segmentation_quality: SegmentationQuality | None
     created_at: datetime
     finalized_at: datetime | None

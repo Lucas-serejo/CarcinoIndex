@@ -10,6 +10,10 @@ from sqlalchemy.orm import Session
 from .models import ClinicalCase, Evaluation, Image, SegmentationAttempt
 
 
+class InvalidSegmentationReview(ValueError):
+    """The requested attempt cannot be reviewed for this evaluation."""
+
+
 class ExperimentRepository:
     def __init__(self, session: Session):
         self.session = session
@@ -78,10 +82,18 @@ class ExperimentRepository:
         return attempt
 
     def finalize_evaluation(self, evaluation_id: UUID, *, clinical_ls: int,
+                            reviewed_attempt_id: UUID, segmentation_quality: str,
                             annotator_confidence: float | None = None) -> Evaluation:
         if type(clinical_ls) is not int or clinical_ls not in range(4):
             raise ValueError("clinical_ls must be an integer between 0 and 3 to finalize.")
         evaluation = self._lock_draft(evaluation_id)
+        if segmentation_quality not in ("adequate", "partially_adequate", "inadequate"):
+            raise InvalidSegmentationReview("Invalid segmentation quality.")
+        attempt = self.session.get(SegmentationAttempt, reviewed_attempt_id)
+        if attempt is None or attempt.evaluation_id != evaluation_id:
+            raise InvalidSegmentationReview("Reviewed attempt must belong to this evaluation.")
+        evaluation.reviewed_attempt_id = reviewed_attempt_id
+        evaluation.segmentation_quality = segmentation_quality
         evaluation.clinical_ls = clinical_ls
         evaluation.annotator_confidence = annotator_confidence
         evaluation.status = "finalized"

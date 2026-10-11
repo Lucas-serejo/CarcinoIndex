@@ -32,7 +32,20 @@ export interface CreateEvaluationRequest {
   annotator_code: string;
 }
 
-export interface FinalizeEvaluationRequest {
+export type SegmentationQuality = 'adequate' | 'partially_adequate' | 'inadequate';
+
+export const segmentationQualityLabels: Record<SegmentationQuality, string> = {
+  adequate: 'Adequate',
+  partially_adequate: 'Partially adequate',
+  inadequate: 'Inadequate',
+};
+
+export interface SegmentationReview {
+  reviewed_attempt_id: string;
+  segmentation_quality: SegmentationQuality;
+}
+
+export interface FinalizeEvaluationRequest extends SegmentationReview {
   clinical_ls: number;
   annotator_confidence: number | null;
 }
@@ -43,6 +56,8 @@ export interface EvaluationResponse {
   pci_region_id: number;
   annotator_code: string;
   status: 'draft' | 'finalized';
+  reviewed_attempt_id: string | null;
+  segmentation_quality: SegmentationQuality | null;
   clinical_ls: number | null;
   annotator_confidence: number | null;
   created_at: string;

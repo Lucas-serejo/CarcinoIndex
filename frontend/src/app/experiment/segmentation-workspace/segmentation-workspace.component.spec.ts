@@ -13,7 +13,7 @@ describe('Persisted segmentation workspace', () => {
   let element: HTMLElement;
   const evaluation: EvaluationResponse = {
     evaluation_id: 'evaluation-1', image_id: 'persisted-image', pci_region_id: 6, annotator_code: 'MED01',
-    status: 'draft', clinical_ls: null, annotator_confidence: null, created_at: '', finalized_at: null,
+    reviewed_attempt_id: null, segmentation_quality: null, status: 'draft', clinical_ls: null, annotator_confidence: null, created_at: '', finalized_at: null,
   };
   const box = { xMin: 200, yMin: 160, xMax: 800, yMax: 600 };
   const attempt: PersistedSegmentationResponse = {
@@ -165,19 +165,49 @@ describe('Persisted segmentation workspace', () => {
     await ready();
     component.continueToClinicalAssessment();
     expect(continueButton()).toBeUndefined();
+    expect(element.querySelector('input[name="segmentation-quality"]')).toBeNull();
     expect(emitted).not.toHaveBeenCalled();
     canvas().boxChange.emit(box);
     await submit();
+    expect(continueButton()?.disabled).toBe(true);
+    component.continueToClinicalAssessment();
+    expect(emitted).not.toHaveBeenCalled();
+    const radios = Array.from(element.querySelectorAll<HTMLInputElement>('input[name="segmentation-quality"]'));
+    expect(radios).toHaveLength(3);
+    expect(radios.map(radio => radio.closest('label')?.textContent?.trim())).toEqual(['Adequate', 'Partially adequate', 'Inadequate']);
+    expect(radios.every(radio => !radio.checked)).toBe(true);
+    radios[1].click(); fixture.detectChanges();
     expect(continueButton()?.disabled).toBe(false);
     continueButton()!.click();
-    expect(emitted).toHaveBeenCalledExactlyOnceWith(undefined);
+    expect(emitted).toHaveBeenCalledExactlyOnceWith({ reviewed_attempt_id: attempt.attempt_id, segmentation_quality: 'partially_adequate' });
     canvas().boxChange.emit({ ...box, xMin: 210 }); fixture.detectChanges();
     expect(continueButton()).toBeUndefined();
     component.continueToClinicalAssessment();
     expect(emitted).toHaveBeenCalledTimes(1);
-    await submit();
-    expect(continueButton()?.disabled).toBe(false);
+    await submit({ ...attempt, attempt_id: 'attempt-2', sequence_number: 2 });
+    expect(component.quality()).toBeNull();
+    expect(continueButton()?.disabled).toBe(true);
+    element.querySelectorAll<HTMLInputElement>('input[name="segmentation-quality"]')[2].click();
+    component.continueToClinicalAssessment();
+    expect(emitted).toHaveBeenLastCalledWith({ reviewed_attempt_id: 'attempt-2', segmentation_quality: 'inadequate' });
     http.expectNone('/api/v1/evaluations/evaluation-1/finalize');
+  });
+
+  it('clears review and result when rerunning the same box, including a failed retry', async () => {
+    await ready(); component.prepareBox(box); await submit();
+    component.quality.set('adequate');
+    const emitted = vi.fn(); component.clinicalAssessmentRequested.subscribe(emitted);
+    const pending = component.segment(); fixture.detectChanges();
+    expect(component.quality()).toBeNull();
+    expect(component.result()).toBeNull();
+    component.continueToClinicalAssessment();
+    expect(emitted).not.toHaveBeenCalled();
+    expect(element.querySelector('input[name="segmentation-quality"]')).toBeNull();
+    fail('/api/v1/evaluations/evaluation-1/segmentations'); await pending;
+    component.continueToClinicalAssessment();
+    expect(emitted).not.toHaveBeenCalled();
+    await submit({ ...attempt, attempt_id: 'retry-attempt', sequence_number: 2 });
+    expect(component.quality()).toBeNull();
   });
 
   it('preserves the prompt after segmentation failure for retry', async () => {

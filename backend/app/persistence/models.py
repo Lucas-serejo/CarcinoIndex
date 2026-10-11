@@ -47,6 +47,8 @@ class Evaluation(Base):
     __table_args__ = (
         CheckConstraint("pci_region_id BETWEEN 0 AND 12", name="ck_evaluation_region"),
         CheckConstraint("clinical_ls BETWEEN 0 AND 3", name="ck_evaluation_ls"),
+        CheckConstraint("segmentation_quality IN ('adequate', 'partially_adequate', 'inadequate')", name="ck_evaluation_segmentation_quality"),
+        CheckConstraint("(reviewed_attempt_id IS NULL) = (segmentation_quality IS NULL)", name="ck_evaluation_segmentation_review_pair"),
         CheckConstraint("status != 'finalized' OR clinical_ls IS NOT NULL", name="ck_evaluation_finalized_ls"),
         CheckConstraint("annotator_confidence BETWEEN 0 AND 1", name="ck_evaluation_annotator_confidence"),
         CheckConstraint("length(trim(annotator_code)) > 0", name="ck_evaluation_annotator"),
@@ -60,6 +62,8 @@ class Evaluation(Base):
     annotator_code: Mapped[str] = mapped_column(String(128))
     clinical_ls: Mapped[int | None] = mapped_column(Integer)
     annotator_confidence: Mapped[float | None] = mapped_column(Float)
+    reviewed_attempt_id: Mapped[UUID | None] = mapped_column(Uuid)
+    segmentation_quality: Mapped[str | None] = mapped_column(String(32))
     status: Mapped[str] = mapped_column(String(16), server_default="draft")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     finalized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

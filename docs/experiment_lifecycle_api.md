@@ -1,6 +1,6 @@
 # Experiment lifecycle in Swagger
 
-Start the configured API with PostgreSQL, its existing Alembic migration, local
+Start the configured API with PostgreSQL, Alembic migrations through `0002_segmentation_review`, local
 storage, and SAM available as described in the backend README. Open `/docs`.
 All paths below use the default `/api/v1` prefix.
 
@@ -15,32 +15,44 @@ All paths below use the default `/api/v1` prefix.
    `{"pci_region_id": 6, "annotator_code": "MED01"}`. Copy `evaluation_id` from
    the `201` response. Region IDs range from 0 through 12. The specialist code
    is pseudonymous, nonblank, and limited to 128 characters. The evaluation
-   starts as `draft`, with null LS, confidence, and finalization time.
+   starts as `draft`, with null LS, confidence, reviewed attempt ID, segmentation
+   quality, and finalization time.
    LS, confidence, and other unsupported JSON fields are rejected with `422`.
 4. `POST /evaluations/{evaluation_id}/segmentations`: provide `prompt_type=box`
    and a JSON array in `box`, for example `[2,2,25,20]` for an image containing
    those coordinates. Alternatively use points and labels. Repeat as needed.
+   While viewing the mask, the specialist chooses `adequate`, `partially_adequate`,
+   or `inadequate`. Retain the `attempt_id` of that specific reviewed result.
 5. `POST /evaluations/{evaluation_id}/finalize` with
-   `{"clinical_ls": 2, "annotator_confidence": 0.9}`. LS is a required integer
-   from 0 to 3. Confidence is optional or null, and otherwise a number from 0 to 1.
+   `{"clinical_ls": 2, "annotator_confidence": 0.9, "reviewed_attempt_id": "<attempt UUID>", "segmentation_quality": "adequate"}`.
+   LS is a required integer from 0 to 3. Confidence is optional or null, and otherwise
+   a number from 0 to 1 representing the specialist's confidence in clinical LS.
+   Both review fields are required and non-null for every new API finalization.
+   Quality accepts only the three exact values above; extra fields remain forbidden.
    The `200` response contains the finalized evaluation and its timestamp.
 6. Further segmentation attempts or a second finalization return `409`.
 
 All evaluation responses include `evaluation_id`, `image_id`, `pci_region_id`,
-`annotator_code`, `status`, `clinical_ls`, `annotator_confidence`, `created_at`, and
-`finalized_at`. Missing parent records return `404`; invalid fields return `422`.
+`annotator_code`, `status`, `clinical_ls`, `annotator_confidence`, `reviewed_attempt_id`,
+`segmentation_quality`, `created_at`, and `finalized_at`. Missing parent records return
+`404`; invalid fields return `422`. A missing attempt or an attempt belonging to another
+Evaluation returns `422` with `{"error":{"code":"invalid_segmentation_review","message":"Reviewed attempt must belong to this evaluation."}}`.
+The failed request leaves the draft unchanged. Existing finalized records without
+review fields remain readable with both fields null.
 
 Finalization means the specialist finished the evaluation and supplied clinical
-LS. It does not accept, validate, or select a reference mask. No segmentation
-attempt is required before finalization. The system performs no autonomous
-diagnosis or automatic LS inference.
+LS and a qualitative judgment tied to a specific segmentation attempt. That judgment
+is not clinical validation, LS, SAM confidence, or ground truth. No mask is accepted,
+validated, or transformed into a reference. The specialist supplies PCI region and
+LS; the workflow does not calculate the complete PCI or perform autonomous diagnosis.
+SAM `selected_score` retains only its internal quality/ranking meaning.
 
 ## Retrieve persisted resources
 
 `GET /evaluations/{evaluation_id}` returns `200` with the existing evaluation
 fields listed above, for either a draft or finalized evaluation. Finalized
-responses include the persisted clinical LS, optional confidence, and finalization
-timestamp. No nested resources or segmentation attempts are included.
+responses include the persisted clinical LS, optional confidence, reviewed attempt ID,
+segmentation quality, and finalization timestamp. No nested resources or segmentation attempts are included.
 A missing evaluation returns `404` with
 `{"error":{"code":"evaluation_not_found","message":"Evaluation not found."}}`.
 
@@ -61,7 +73,8 @@ internal storage key, the response is `500` with
 Storage errors expose no keys, paths, or exception details. The database session
 closes before `LocalStorage.read()` retrieves the bytes.
 
-These operations reuse the current schema and require no migration. They support
+Apply `python -m alembic upgrade head` before using the extended Evaluation contract.
+The retrieval operations support
 retrieval from persisted state without retaining the original browser File.
 Segmentation-attempt retrieval and frontend resume behavior remain outside this
 iteration. Image bytes are read into memory; streaming, range requests, retries,

@@ -12,10 +12,11 @@ describe('Clinical assessment', () => {
   const url = '/api/v1/evaluations/evaluation-1';
   const draft: EvaluationResponse = {
     evaluation_id: 'evaluation-1', image_id: 'image-1', pci_region_id: 6, annotator_code: 'MED01',
-    status: 'draft', clinical_ls: null, annotator_confidence: null, created_at: '', finalized_at: null,
+    reviewed_attempt_id: null, segmentation_quality: null, status: 'draft', clinical_ls: null, annotator_confidence: null, created_at: '', finalized_at: null,
   };
   const finalized: EvaluationResponse = {
     ...draft, status: 'finalized', clinical_ls: 3, annotator_confidence: 0.82, finalized_at: '2026-09-26T12:00:00Z',
+    reviewed_attempt_id: 'persisted-attempt', segmentation_quality: 'inadequate',
   };
 
   beforeEach(() => {
@@ -25,6 +26,7 @@ describe('Clinical assessment', () => {
     component = fixture.componentInstance;
     element = fixture.nativeElement as HTMLElement;
     fixture.componentRef.setInput('evaluationId', 'evaluation-1');
+    fixture.componentRef.setInput('segmentationReview', { reviewed_attempt_id: 'attempt-1', segmentation_quality: 'partially_adequate' });
     fixture.detectChanges();
   });
   afterEach(() => { fixture.destroy(); http.verify(); });
@@ -101,11 +103,14 @@ describe('Clinical assessment', () => {
       http.expectNone(`${url}/finalize`);
       expect(element.textContent).toContain('LS 2');
       expect(element.textContent).toContain(display);
+      expect(element.textContent).toContain('Segmentation quality');
+      expect(element.textContent).toContain('Partially adequate');
+      expect(element.textContent).not.toContain('attempt-1');
       expect(element.querySelector('input')).toBeNull();
       expect(element.textContent).toContain('irreversible');
       button('Finalize evaluation').click();
       const request = http.expectOne(`${url}/finalize`);
-      expect(request.request.body).toEqual({ clinical_ls: 2, annotator_confidence: backend });
+      expect(request.request.body).toEqual({ reviewed_attempt_id: 'attempt-1', segmentation_quality: 'partially_adequate', clinical_ls: 2, annotator_confidence: backend });
       request.flush({ ...finalized, clinical_ls: 2, annotator_confidence: backend });
     },
   );
@@ -143,7 +148,7 @@ describe('Clinical assessment', () => {
     expect(component.state()).toBe('finalizing');
     http.expectNone(url);
     const request = http.expectOne(`${url}/finalize`);
-    expect(request.request.body).toEqual({ clinical_ls: 2, annotator_confidence: 0.73 });
+    expect(request.request.body).toEqual({ reviewed_attempt_id: 'attempt-1', segmentation_quality: 'partially_adequate', clinical_ls: 2, annotator_confidence: 0.73 });
     request.flush(finalized);
   });
 
@@ -155,6 +160,9 @@ describe('Clinical assessment', () => {
     expect(element.textContent).toContain('Clinical assessment finalized');
     expect(element.textContent).toContain('LS 3');
     expect(element.textContent).toContain('82%');
+    expect(element.textContent).toContain('Inadequate');
+    expect(element.textContent).not.toContain('Partially adequate');
+    expect(element.textContent).not.toContain('persisted-attempt');
     expect(element.querySelector('input, button')).toBeNull();
     expect(element.textContent).toContain('clinical LS was supplied by the specialist');
     expect(element.textContent).toContain('does not accept, validate, or select a segmentation mask');
@@ -168,6 +176,13 @@ describe('Clinical assessment', () => {
     expect(element.querySelector('input, button')).toBeNull();
     expect(element.textContent).toContain('Not provided');
     expect(emitted).toHaveBeenCalledExactlyOnceWith({ ...finalized, annotator_confidence: null });
+    component.reviewAssessment(); component.finalize(); http.expectNone(`${url}/finalize`);
+  });
+
+  it('keeps legacy finalized evaluations read-only without inventing a quality', () => {
+    load({ ...finalized, reviewed_attempt_id: null, segmentation_quality: null });
+    expect(element.textContent).toContain('Not recorded');
+    expect(element.querySelector('input, button')).toBeNull();
     component.reviewAssessment(); component.finalize(); http.expectNone(`${url}/finalize`);
   });
 

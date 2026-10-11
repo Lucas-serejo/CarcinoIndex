@@ -17,7 +17,7 @@ describe('Experiment setup', () => {
   const image: ImageResponse = { image_id: 'image-1', case_id: 'case-1', width: 1920, height: 1080, sha256: 'hash', created_at: clinicalCase.created_at };
   const evaluation: EvaluationResponse = {
     evaluation_id: 'evaluation-1', image_id: 'image-1', pci_region_id: 0, annotator_code: 'MED01',
-    status: 'draft', clinical_ls: null, annotator_confidence: null, created_at: clinicalCase.created_at, finalized_at: null,
+    reviewed_attempt_id: null, segmentation_quality: null, status: 'draft', clinical_ls: null, annotator_confidence: null, created_at: clinicalCase.created_at, finalized_at: null,
   };
   const file = new File(['image'], 'identifying-name.png', { type: 'image/png' });
 
@@ -220,12 +220,13 @@ describe('Experiment setup', () => {
     http.expectOne('/api/v1/images/image-1/content').flush(new Blob(['image'], { type: 'image/png' }));
     await Promise.resolve(); fixture.detectChanges();
     const workspace = fixture.debugElement.query(By.directive(SegmentationWorkspaceComponent)).componentInstance as SegmentationWorkspaceComponent;
-    workspace.clinicalAssessmentRequested.emit(); fixture.detectChanges();
+    workspace.clinicalAssessmentRequested.emit({ reviewed_attempt_id: 'attempt-2', segmentation_quality: 'inadequate' }); fixture.detectChanges();
     expect(component.phase()).toBe('clinical');
     expect(fixture.debugElement.query(By.directive(SegmentationWorkspaceComponent))).toBeNull();
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:preview');
     const clinical = fixture.debugElement.query(By.directive(ClinicalAssessmentComponent)).componentInstance as ClinicalAssessmentComponent;
     expect(clinical.evaluationId()).toBe('evaluation-1');
+    expect(clinical.segmentationReview()).toEqual({ reviewed_attempt_id: 'attempt-2', segmentation_quality: 'inadequate' });
     expect('file' in clinical || 'mask' in clinical || 'metadata' in clinical).toBe(false);
     http.expectOne('/api/v1/evaluations/evaluation-1').flush(evaluation); fixture.detectChanges();
     expect(Array.from(element.querySelectorAll('.steps span')).map(span => span.textContent)).toEqual(['Complete', 'Complete', 'Active']);

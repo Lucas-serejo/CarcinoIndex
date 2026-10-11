@@ -43,12 +43,15 @@ def test_round_trip_multiple_attempts_and_clinical_label(database, clinical_ls):
         assert evaluation.status == "draft" and evaluation.finalized_at is None
         repo = ExperimentRepository(session)
         assert attempt(repo, eid).sequence_number == 1
-        assert attempt(repo, eid).sequence_number == 2
-        repo.finalize_evaluation(eid, clinical_ls=clinical_ls, annotator_confidence=0.7)
+        reviewed = attempt(repo, eid)
+        assert reviewed.sequence_number == 2
+        aid = reviewed.id
+        repo.finalize_evaluation(eid, clinical_ls=clinical_ls, annotator_confidence=0.7, reviewed_attempt_id=aid, segmentation_quality="adequate")
     with factory() as session:
         repo = ExperimentRepository(session)
         loaded = repo.get_evaluation(eid)
         assert loaded.clinical_ls == clinical_ls and loaded.annotator_confidence == 0.7
+        assert loaded.reviewed_attempt_id == aid and loaded.segmentation_quality == "adequate"
         assert loaded.created_at.tzinfo and loaded.finalized_at.tzinfo
         assert loaded.image.case.anonymous_patient_code == "anonymous-001"
         attempts = repo.list_attempts(eid)
@@ -59,7 +62,7 @@ def test_round_trip_multiple_attempts_and_clinical_label(database, clinical_ls):
         with pytest.raises(ValueError, match="finalized"):
             attempt(repo, eid)
         with pytest.raises(ValueError, match="finalized"):
-            repo.finalize_evaluation(eid, clinical_ls=1)
+            repo.finalize_evaluation(eid, clinical_ls=1, reviewed_attempt_id=aid, segmentation_quality="adequate")
 
 
 @pytest.mark.parametrize("field,value", [("pci_region_id", -1), ("pci_region_id", 13), ("clinical_ls", 4), ("clinical_ls", -1), ("annotator_confidence", 1.1), ("annotator_confidence", -0.1), ("annotator_confidence", float("nan")), ("status", "unknown"), ("status", "finalized"), ("annotator_code", " ")])
@@ -144,3 +147,58 @@ def test_migration_matches_models_and_downgrades(database):
         assert set(inspect(connection).get_table_names()) == {"alembic_version"}
         command.upgrade(config, "head")
         assert len(inspect(connection).get_table_names()) == 5
+
+
+@pytest.mark.parametrize("quality,has_attempt", [
+    ("unknown", True), ("Adequate", True), ("", True),
+    ("adequate", False), ("partially_adequate", False), (None, True),
+])
+def test_segmentation_review_constraints(database, quality, has_attempt):
+    with create_session_factory(database[0]).begin() as session:
+        evaluation = seed(session)
+        saved = attempt(ExperimentRepository(session), evaluation.id)
+        with pytest.raises(IntegrityError), session.begin_nested():
+            evaluation.reviewed_attempt_id = saved.id if has_attempt else None
+            evaluation.segmentation_quality = quality
+            session.flush()
+
+
+def test_incremental_migration_preserves_legacy_finalized_evaluation(database):
+    from sqlalchemy import text
+    engine, config = database
+    with engine.begin() as connection:
+        config.attributes["connection"] = connection
+        command.downgrade(config, "0001_experiment")
+        case_id, image_id, eid = uuid4(), uuid4(), uuid4()
+        connection.execute(text("INSERT INTO clinical_cases (id, anonymous_patient_code) VALUES (:id, 'legacy')"), {"id": case_id})
+        connection.execute(text("INSERT INTO images (id, case_id, storage_path, width, height, sha256) VALUES (:id, :case_id, 'images/legacy.png', 32, 24, :hash)"), {"id": image_id, "case_id": case_id, "hash": "a" * 64})
+        connection.execute(text("INSERT INTO evaluations (id, image_id, pci_region_id, annotator_code, clinical_ls, status, finalized_at) VALUES (:id, :image_id, 6, 'legacy', 2, 'finalized', now())"), {"id": eid, "image_id": image_id})
+        command.upgrade(config, "head")
+        record = connection.execute(text("SELECT status, clinical_ls, reviewed_attempt_id, segmentation_quality FROM evaluations WHERE id = :id"), {"id": eid}).one()
+        assert tuple(record) == ("finalized", 2, None, None)
+        assert compare_metadata(MigrationContext.configure(connection), Base.metadata) == []
+        checks = {c["name"]: c["sqltext"] for c in inspect(connection).get_check_constraints("evaluations")}
+        assert "ck_evaluation_segmentation_quality" in checks
+        assert "ck_evaluation_segmentation_review_pair" in checks
+        command.downgrade(config, "0001_experiment")
+        assert "reviewed_attempt_id" not in {c["name"] for c in inspect(connection).get_columns("evaluations")}
+        assert connection.execute(text("SELECT clinical_ls FROM evaluations WHERE id = :id"), {"id": eid}).scalar_one() == 2
+        command.upgrade(config, "head")
+
+
+def test_concurrent_finalizations_allow_only_one_review(database):
+    factory = create_session_factory(database[0])
+    with factory.begin() as session:
+        eid = seed(session).id
+        aid = attempt(ExperimentRepository(session), eid).id
+    def finalize(quality):
+        try:
+            with factory.begin() as session:
+                ExperimentRepository(session).finalize_evaluation(
+                    eid, clinical_ls=2, reviewed_attempt_id=aid, segmentation_quality=quality,
+                )
+            return "finalized"
+        except ValueError:
+            return "rejected"
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        assert sorted(pool.map(finalize, ["adequate", "inadequate"])) == ["finalized", "rejected"]
