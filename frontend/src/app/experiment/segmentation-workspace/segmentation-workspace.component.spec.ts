@@ -13,7 +13,7 @@ describe('Persisted segmentation workspace', () => {
   let element: HTMLElement;
   const evaluation: EvaluationResponse = {
     evaluation_id: 'evaluation-1', image_id: 'persisted-image', pci_region_id: 6, annotator_code: 'MED01',
-    status: 'draft', clinical_ls: null, annotator_confidence: null, created_at: '', finalized_at: null,
+    reviewed_attempt_id: null, segmentation_quality: null, status: 'draft', clinical_ls: null, annotator_confidence: null, created_at: '', finalized_at: null,
   };
   const box = { xMin: 200, yMin: 160, xMax: 800, yMax: 600 };
   const attempt: PersistedSegmentationResponse = {
@@ -70,6 +70,26 @@ describe('Persisted segmentation workspace', () => {
     http.expectOne('/api/v1/evaluations/evaluation-1/segmentations').flush(response);
     await pending;
     fixture.detectChanges();
+  }
+
+  function loadMask(width = 1920, height = 1080): void {
+    const mask = element.querySelector<HTMLImageElement>('.mask')!;
+    Object.defineProperties(mask, { naturalWidth: { value: width }, naturalHeight: { value: height } });
+    mask.dispatchEvent(new Event('load'));
+    fixture.detectChanges();
+  }
+
+  function expectReviewBlocked(): void {
+    expect(component.reviewable()).toBe(false);
+    expect(element.querySelector('input[name="segmentation-quality"]')).toBeNull();
+    const emitted = vi.fn();
+    const subscription = component.clinicalAssessmentRequested.subscribe(emitted);
+    // Exercise the programmatic guard even with an injected quality value.
+    component.quality.set('adequate');
+    component.continueToClinicalAssessment();
+    expect(emitted).not.toHaveBeenCalled();
+    component.quality.set(null);
+    subscription.unsubscribe();
   }
 
   it('reconstructs from only an evaluation ID, loads in order and releases the persisted URL', async () => {
@@ -165,19 +185,61 @@ describe('Persisted segmentation workspace', () => {
     await ready();
     component.continueToClinicalAssessment();
     expect(continueButton()).toBeUndefined();
+    expect(element.querySelector('input[name="segmentation-quality"]')).toBeNull();
     expect(emitted).not.toHaveBeenCalled();
     canvas().boxChange.emit(box);
     await submit();
+    expect(continueButton()?.disabled).toBe(true);
+    expectReviewBlocked();
+    loadMask();
+    expect(component.reviewable()).toBe(true);
+    component.continueToClinicalAssessment();
+    expect(emitted).not.toHaveBeenCalled();
+    const radios = Array.from(element.querySelectorAll<HTMLInputElement>('input[name="segmentation-quality"]'));
+    expect(radios).toHaveLength(3);
+    expect(radios.map(radio => radio.closest('label')?.textContent?.trim())).toEqual(['Adequate', 'Partially adequate', 'Inadequate']);
+    expect(radios.every(radio => !radio.checked)).toBe(true);
+    radios[1].click(); fixture.detectChanges();
     expect(continueButton()?.disabled).toBe(false);
     continueButton()!.click();
-    expect(emitted).toHaveBeenCalledExactlyOnceWith(undefined);
+    expect(emitted).toHaveBeenCalledExactlyOnceWith({ reviewed_attempt_id: attempt.attempt_id, segmentation_quality: 'partially_adequate' });
     canvas().boxChange.emit({ ...box, xMin: 210 }); fixture.detectChanges();
+    expectReviewBlocked();
     expect(continueButton()).toBeUndefined();
     component.continueToClinicalAssessment();
     expect(emitted).toHaveBeenCalledTimes(1);
-    await submit();
-    expect(continueButton()?.disabled).toBe(false);
+    await submit({ ...attempt, attempt_id: 'attempt-2', sequence_number: 2 });
+    expect(component.quality()).toBeNull();
+    expect(continueButton()?.disabled).toBe(true);
+    expectReviewBlocked();
+    loadMask();
+    element.querySelectorAll<HTMLInputElement>('input[name="segmentation-quality"]')[2].click();
+    component.continueToClinicalAssessment();
+    expect(emitted).toHaveBeenLastCalledWith({ reviewed_attempt_id: 'attempt-2', segmentation_quality: 'inadequate' });
     http.expectNone('/api/v1/evaluations/evaluation-1/finalize');
+  });
+
+  it('clears review and result when rerunning the same box, including a failed retry', async () => {
+    await ready(); component.prepareBox(box); await submit();
+    loadMask();
+    expect(component.reviewable()).toBe(true);
+    component.quality.set('adequate');
+    const emitted = vi.fn(); component.clinicalAssessmentRequested.subscribe(emitted);
+    const pending = component.segment(); fixture.detectChanges();
+    expectReviewBlocked();
+    expect(component.quality()).toBeNull();
+    expect(component.result()).toBeNull();
+    component.continueToClinicalAssessment();
+    expect(emitted).not.toHaveBeenCalled();
+    expect(element.querySelector('input[name="segmentation-quality"]')).toBeNull();
+    fail('/api/v1/evaluations/evaluation-1/segmentations'); await pending;
+    fixture.detectChanges();
+    expectReviewBlocked();
+    component.continueToClinicalAssessment();
+    expect(emitted).not.toHaveBeenCalled();
+    await submit({ ...attempt, attempt_id: 'retry-attempt', sequence_number: 2 });
+    expect(component.quality()).toBeNull();
+    expectReviewBlocked();
   });
 
   it('preserves the prompt after segmentation failure for retry', async () => {
@@ -199,6 +261,44 @@ describe('Persisted segmentation workspace', () => {
     await submit({ ...attempt, mask: { ...attempt.mask, width: 10 } });
     expect(element.textContent).toContain('mask dimensions do not match');
     expect(element.querySelector('.mask')).toBeNull();
+    expectReviewBlocked();
+  });
+
+  it.each(['decode-before-load', 'decode', 'dimensions', 'image'])('blocks review after %s display failure', async failure => {
+    await ready(); component.prepareBox(box); await submit();
+    if (failure === 'dimensions') {
+      loadMask(10, 10);
+    } else if (failure === 'decode-before-load') {
+      element.querySelector('.mask')!.dispatchEvent(new Event('error'));
+      fixture.detectChanges();
+    } else {
+      loadMask();
+      component.quality.set('adequate');
+      element.querySelector(failure === 'image' ? '.original' : '.mask')!.dispatchEvent(new Event('error'));
+      fixture.detectChanges();
+    }
+    expect(component.quality()).toBeNull();
+    expect(element.textContent).toContain('could not be displayed');
+    expectReviewBlocked();
+  });
+
+  it('requires a fresh load for a new attempt with identical pixels and ignores stale display events', async () => {
+    await ready(); component.prepareBox(box); await submit(); loadMask();
+    const oldMask = element.querySelector('.mask');
+    const next = { ...attempt, attempt_id: 'next', mask: { ...attempt.mask } };
+    await submit(next);
+    expect(element.querySelector('.mask')).not.toBe(oldMask);
+    canvas().maskLoaded({ target: oldMask } as unknown as Event, attempt.mask);
+    canvas().maskDisplayChange.emit({ mask: attempt.mask, reviewable: true });
+    fixture.detectChanges();
+    expectReviewBlocked();
+    loadMask();
+    canvas().maskDisplayFailed(attempt.mask);
+    expect(component.reviewable()).toBe(true);
+    component.quality.set('inadequate');
+    const emitted = vi.fn(); component.clinicalAssessmentRequested.subscribe(emitted);
+    component.continueToClinicalAssessment();
+    expect(emitted).toHaveBeenCalledExactlyOnceWith({ reviewed_attempt_id: 'next', segmentation_quality: 'inadequate' });
   });
 
   it('cancels evaluation retrieval on destruction', () => {

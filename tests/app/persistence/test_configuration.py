@@ -44,8 +44,10 @@ def test_migration_renders_postgresql_without_connection(monkeypatch):
     assert "status != 'finalized' OR clinical_ls IS NOT NULL" in sql
     assert "clinical_ls BETWEEN 0 AND 3" in sql
     assert "annotator_confidence" in sql
+    assert "ck_evaluation_segmentation_quality" in sql
+    assert "ck_evaluation_segmentation_review_pair" in sql
     assert "original_filename" not in sql
     output.truncate(0)
     output.seek(0)
-    command.downgrade(config, "0001_experiment:base", sql=True)
+    command.downgrade(config, "0002_segmentation_review:base", sql=True)
     assert "DROP TABLE clinical_cases" in output.getvalue()

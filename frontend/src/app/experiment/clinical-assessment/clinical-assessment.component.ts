@@ -2,7 +2,7 @@ import { PercentPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, input, OnInit, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
-import { EvaluationResponse, FinalizeEvaluationRequest } from '../../api/api.models';
+import { EvaluationResponse, FinalizeEvaluationRequest, SegmentationReview, segmentationQualityLabels } from '../../api/api.models';
 import { ExperimentApiService } from '../../api/experiment-api.service';
 
 const clinicalLs: ValidatorFn = control =>
@@ -21,6 +21,8 @@ type AssessmentState = 'loading' | 'editing' | 'reviewing' | 'finalizing' | 'fin
 })
 export class ClinicalAssessmentComponent implements OnInit {
   readonly evaluationId = input.required<string>();
+  readonly segmentationReview = input.required<SegmentationReview>();
+  readonly qualityLabels = segmentationQualityLabels;
   readonly evaluationFinalized = output<EvaluationResponse>();
   private readonly api = inject(ExperimentApiService);
   private readonly destroyRef = inject(DestroyRef);
@@ -65,6 +67,7 @@ export class ClinicalAssessmentComponent implements OnInit {
     if (this.form.invalid) return;
     const { clinicalLs, confidencePercent } = this.form.getRawValue();
     this.review.set(Object.freeze({
+      ...this.segmentationReview(),
       clinical_ls: clinicalLs!,
       annotator_confidence: confidencePercent === null ? null : confidencePercent / 100,
     }));

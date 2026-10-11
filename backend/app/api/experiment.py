@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from backend.app.api.dependencies import get_session_factory, get_storage
 from backend.app.api.errors import APIError
 from backend.app.api.image_validation import validate_image_upload
-from backend.app.persistence.repository import ExperimentRepository
+from backend.app.persistence.repository import ExperimentRepository, InvalidSegmentationReview
 from backend.app.schemas.experiment import (
     CaseResponse, CreateCaseRequest, CreateEvaluationRequest, EvaluationResponse,
     FinalizeEvaluationRequest, ImageResponse,
@@ -169,10 +169,11 @@ def get_evaluation(
     "/evaluations/{evaluation_id}/finalize", response_model=EvaluationResponse,
     summary="Finalize evaluation",
     description="Record clinical LS supplied manually by the specialist and finish the evaluation. "
-                "No segmentation attempt is required. Finalization does not validate or select a "
+                "A qualitative review of a specific attempt from this evaluation is required. Finalization does not validate or select a "
                 "reference mask and does not imply autonomous diagnosis.",
     responses={404: {"description": "Evaluation not found."},
-               409: {"description": "Evaluation already finalized."}},
+               409: {"description": "Evaluation already finalized."},
+               422: {"description": "Invalid request or reviewed attempt not found in this evaluation."}},
 )
 def finalize_evaluation(
     evaluation_id: UUID, body: FinalizeEvaluationRequest,
@@ -186,6 +187,8 @@ def finalize_evaluation(
                 )
             except LookupError as exc:
                 raise APIError(404, "evaluation_not_found", "Evaluation not found.") from exc
+            except InvalidSegmentationReview as exc:
+                raise APIError(422, "invalid_segmentation_review", "Reviewed attempt must belong to this evaluation.") from exc
             except ValueError as exc:
                 raise APIError(409, "evaluation_finalized", "Evaluation is finalized.") from exc
             response = EvaluationResponse.model_validate(evaluation)

@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
-import { CaseResponse, EvaluationResponse, ImageResponse, Region } from '../api/api.models';
+import { CaseResponse, EvaluationResponse, ImageResponse, Region, SegmentationReview } from '../api/api.models';
 import { ExperimentApiService } from '../api/experiment-api.service';
 import { SegmentationWorkspaceComponent } from './segmentation-workspace/segmentation-workspace.component';
 import { ClinicalAssessmentComponent } from './clinical-assessment/clinical-assessment.component';
@@ -32,6 +32,7 @@ export class ExperimentWorkflowComponent {
   readonly clinicalCase = signal<CaseResponse | null>(null);
   readonly image = signal<ImageResponse | null>(null);
   readonly evaluation = signal<EvaluationResponse | null>(null);
+  readonly segmentationReview = signal<SegmentationReview | null>(null);
   readonly stage = signal<Stage | null>(null);
   readonly phase = signal<'setup' | 'segmentation' | 'clinical'>('setup');
   readonly failure = signal<{ stage: Stage; message: string } | null>(null);
@@ -144,8 +145,11 @@ export class ExperimentWorkflowComponent {
     this.phase.set('segmentation');
   }
 
-  enterClinicalAssessment(): void {
-    if (this.phase() === 'segmentation' && this.evaluation()) this.phase.set('clinical');
+  enterClinicalAssessment(review: SegmentationReview): void {
+    if (this.phase() === 'segmentation' && this.evaluation()) {
+      this.segmentationReview.set(review);
+      this.phase.set('clinical');
+    }
   }
 
   private revokePreview(): void {

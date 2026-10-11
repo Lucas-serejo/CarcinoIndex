@@ -37,6 +37,7 @@
             <h2>Review assessment</h2>
             <dl>
               <dt>PCI region</dt><dd>{{ record.pci_region_id }}</dd>
+              <dt>Segmentation quality</dt><dd>{{ qualityLabels[snapshot.segmentation_quality] }}</dd>
               <dt>Clinical LS</dt><dd>LS {{ snapshot.clinical_ls }}</dd>
               <dt>Annotator confidence</dt><dd>{{ snapshot.annotator_confidence === null ? 'Not provided' : (snapshot.annotator_confidence | percent:'1.0-12') }}</dd>
             </dl>
@@ -58,6 +59,7 @@
           <h2 role="status">Clinical assessment finalized</h2>
           <dl>
             <dt>PCI region</dt><dd>{{ record.pci_region_id }}</dd>
+            <dt>Segmentation quality</dt><dd>{{ record.segmentation_quality ? qualityLabels[record.segmentation_quality] : 'Not recorded' }}</dd>
             <dt>Clinical LS</dt><dd>LS {{ record.clinical_ls }}</dd>
             <dt>Annotator confidence</dt><dd>{{ record.annotator_confidence === null ? 'Not provided' : (record.annotator_confidence | percent:'1.0-12') }}</dd>
             <dt>Status</dt><dd>Finalized</dd>
@@ -72,7 +74,8 @@
           <dt>PCI region</dt><dd>{{ record.pci_region_id }}</dd>
           <dt>Status</dt><dd>{{ record.status === 'finalized' ? 'Finalized' : 'Draft' }}</dd>
         </dl>
-        <p>Finalizing this Evaluation does not accept, validate, or select a segmentation mask.</p>
+        <p>Segmentation quality is a human qualitative judgment of the SAM output.</p>
+        <p>Finalizing this Evaluation does not accept, validate, or select a segmentation mask as a reference or ground truth.</p>
         <p>This finalizes the selected regional Evaluation; it does not represent a complete 13-region PCI score.</p>
       </aside>
     </div>

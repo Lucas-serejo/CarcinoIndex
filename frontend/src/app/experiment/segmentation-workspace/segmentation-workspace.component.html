@@ -14,7 +14,7 @@
       @if (imageUrl(); as url) {
         <div class="workspace">
           <app-segmentation-canvas #canvas [imageUrl]="url" [mask]="result()?.mask ?? null" [disabled]="segmenting()"
-            (boxChange)="prepareBox($event)" (imageFailed)="imageFailed()" />
+            (boxChange)="prepareBox($event)" (imageFailed)="imageFailed()" (maskDisplayChange)="maskDisplayChanged($event)" />
           <aside aria-label="Segmentation controls" [attr.aria-busy]="segmenting()">
             <h2>Prompt</h2>
             <p id="drawing-instructions">Drag a bounding box around the specialist-indicated lesion. Draw again to replace it. Box drawing requires a mouse, pen, or touch.</p>
@@ -29,7 +29,16 @@
                 <p>Segmentation attempt saved. Review the segmentation result.</p>
                 <p>{{ attempt.region.region_name }}</p>
               </div>
-              <button type="button" (click)="continueToClinicalAssessment()" [disabled]="segmenting()" aria-describedby="clinical-note">Continue to clinical assessment</button>
+              @if (reviewable()) {
+                <fieldset [disabled]="segmenting()" aria-describedby="quality-help">
+                  <legend>Segmentation quality (required)</legend>
+                  @for (choice of qualityChoices; track choice) {
+                    <label><input type="radio" name="segmentation-quality" [value]="choice" [checked]="quality() === choice" (change)="quality.set(choice)" /> {{ qualityLabels[choice] }}</label>
+                  }
+                  <p id="quality-help" class="hint">Rate only the visual/spatial quality of this segmentation, not LS, diagnosis, or SAM confidence.</p>
+                </fieldset>
+              }
+              <button type="button" (click)="continueToClinicalAssessment()" [disabled]="segmenting() || !reviewable() || !quality()" aria-describedby="clinical-note">Continue to clinical assessment</button>
               <p id="clinical-note" class="hint">Continue to manually assign clinical LS after reviewing the result.</p>
             }
           </aside>

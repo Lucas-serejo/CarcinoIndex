@@ -107,7 +107,10 @@ def test_missing_and_finalized_evaluations_do_not_infer(persisted_api):
     api = persisted_api
     assert api.client.post(f"/api/v1/evaluations/{uuid4()}/segmentations", data=BOX).status_code == 404
     with api.sessions.begin() as session:
-        ExperimentRepository(session).finalize_evaluation(api.eid, clinical_ls=2)
+        repo = ExperimentRepository(session)
+        saved = repo.add_attempt(evaluation_id=api.eid, prompt_type="box", prompt_data={},
+                                 mask_storage_path="masks/test.png", sam_metadata={})
+        repo.finalize_evaluation(api.eid, clinical_ls=2, reviewed_attempt_id=saved.id, segmentation_quality="adequate")
     assert api.client.post(api.url, data=BOX).status_code == 409
     assert api.fake.calls == []
     assert not list(api.storage.root.glob("masks/*"))

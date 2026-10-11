@@ -5,13 +5,13 @@ A rota stateless permanece independente do banco. Nenhuma
 inferência ou gravação é disparada por importar os módulos. O contrato
 [SAM 2.1](sam2_inference_contract.md) permanece válido para a API atual.
 
-## Modelo inicial
+## Modelo de persistência
 
 | Entidade | Conteúdo e relações |
 | --- | --- |
 | ClinicalCase | UUID, código anônimo do paciente e criação; possui várias imagens. O código não é único: um paciente pode ter casos distintos. |
 | Image | UUID, FK do caso, caminho relativo, largura/altura positivas, SHA-256 hexadecimal dos bytes originais e criação. Hash indexado, sem deduplicação automática entre casos. |
-| Evaluation | UUID, FK da imagem, região PCI 0–12, código do anotador, LS clínico manual 0–3 (opcional em draft, obrigatório em finalized), annotator_confidence opcional 0–1, status e timestamps. Permite avaliações independentes da mesma imagem. |
+| Evaluation | UUID, FK da imagem, região PCI 0–12, código do anotador, LS clínico manual 0–3 (opcional em draft, obrigatório em finalized), annotator_confidence opcional 0–1 (confiança no LS), reviewed_attempt_id UUID e segmentation_quality string opcionais em draft, status e timestamps. Permite avaliações independentes da mesma imagem. |
 | SegmentationAttempt | UUID, FK da avaliação, sequência positiva única nessa avaliação, prompt box/points, JSONB do prompt, caminho da máscara, JSONB dos metadados SAM e criação. |
 
 IDs são gerados pela aplicação; timestamps de criação são gerados no banco
@@ -23,7 +23,11 @@ de `multimask_output` no prompt para reprodutibilidade. Não incluir arrays de
 máscara ou logits no JSON.
 
 O repositório cria avaliações em `draft`. Finalizar grava `finalized_at` e o
-LS explicitamente informado, obrigatoriamente inteiro entre 0 e 3.
+LS explicitamente informado, obrigatoriamente inteiro entre 0 e 3, além de
+`reviewed_attempt_id` e `segmentation_quality`. Sob o mesmo bloqueio da avaliação,
+o repositório verifica que a tentativa existe e pertence à avaliação. Os dois campos
+são gravados na mesma transação curta, sem relação ORM circular ou nova tabela.
+A pertença é garantida pelo repositório; o UUID não introduz uma FK circular.
 Em `draft`, o LS pode ser `None`; o banco também impede finalizar sem LS válido.
 Tentativas adicionais e nova finalização são recusadas pelo repositório.
 Ele usa bloqueio da linha da avaliação até commit/rollback, em conjunto com
@@ -32,8 +36,10 @@ de imutabilidade são do repositório, não triggers contra SQL direto.
 JSONB deve ser substituído integralmente em atualizações, não alterado in-place.
 
 `finalized` registra o encerramento da avaliação; não indica automaticamente
-uma máscara validada. A referência à tentativa escolhida pelo especialista,
-features e exportação do dataset são próximas etapas e não estão implementadas.
+uma máscara validada. A tentativa revisada fica vinculada ao julgamento humano
+`adequate` / `partially_adequate` / `inadequate`, sem aceite ou transformação em
+referência/ground truth. Região PCI e LS são fornecidos pelo especialista; o fluxo
+não calcula PCI completo. Features e exportação de dataset não estão implementadas.
 
 ## Uso da fundação
 
@@ -77,7 +83,8 @@ finally:
 `add_attempt()` recebe o UUID da avaliação, tipo e dados do prompt, caminho
 da máscara PNG previamente salva e metadados SAM. `list_attempts()` retorna
 as tentativas na ordem; `get_evaluation()` recupera a avaliação e suas relações.
-`finalize_evaluation()` registra os campos clínicos manuais. O repositório
+`finalize_evaluation()` exige e registra os campos clínicos manuais e a revisão
+qualitativa vinculada à tentativa. O repositório
 faz flush, mas somente o chamador decide a transação completa.
 
 Storage gera nomes UUID independentes do nome original e verifica caminhos
@@ -97,7 +104,12 @@ automático de órfãos nesta etapa. Backups devem incluir banco e storage.
 
 ## Migrations e validação
 
-`0001_experiment` cria as quatro tabelas, FKs, índices e checks.
+`0001_experiment` cria as quatro tabelas, FKs, índices e checks e permanece inalterada.
+`0002_segmentation_review` adiciona os dois campos nullable à Evaluation. Checks
+restringem qualidade às três categorias e exigem ambos os campos nulos ou ambos
+preenchidos. Avaliações antigas finalizadas sem revisão continuam válidas; somente
+novas finalizações pela API exigem a revisão. O downgrade para `0001_experiment`
+remove apenas os campos de revisão e seus checks, perdendo esses dados de revisão.
 `python -m alembic downgrade base` remove essas tabelas e seus registros;
 use apenas para reversão deliberada em banco descartável. Arquivos permanecem
 no storage. Migrations não importam o modelo SAM nem exigem checkpoint/CUDA.

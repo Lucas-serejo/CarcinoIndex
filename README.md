@@ -1,9 +1,8 @@
 # CarcinoIndex
 
-CarcinoIndex is an academic human-in-the-loop research prototype for supporting
-Peritoneal Cancer Index (PCI) evaluation in laparoscopic images. Its current
-primary focus is evaluating SAM 2.1 Hiera Small as a specialist-guided
-segmentation tool for peritoneal lesions.
+CarcinoIndex is an experimental human-in-the-loop platform for investigating
+assisted segmentation of laparoscopic lesions in the context of peritoneal
+carcinomatosis. Its current focus is SAM 2.1 Hiera Small with specialist prompts.
 
 The system does not autonomously discover where a lesion is. The specialist
 indicates the clinical object of interest; SAM turns that prompt into a
@@ -32,8 +31,9 @@ not clinical confidence.
 
 The planned next scientific stage is a small target-domain evaluation using
 laparoscopic peritoneal carcinomatosis images, with specialist review of the
-CarcinoIndex segmentation and workflow. The review categories and protocol have
-not yet been finalized. Manual mask correction or reference-mask creation is
+CarcinoIndex segmentation and workflow (Experiment B). The implemented qualitative
+categories are `adequate`, `partially_adequate`, and `inadequate`; the broader study
+protocol remains pending validation. Manual mask correction or reference-mask creation is
 not required by the minimum current TCC protocol.
 
 Feature extraction, including existing helpers and notebooks, and feature-versus-LS
@@ -52,24 +52,29 @@ The Angular frontend and FastAPI backend support:
    around the specialist-indicated lesion.
 3. SAM 2.1 inference: generate a mask from the prompt and persist a
    SegmentationAttempt. Multiple attempts may be created; the frontend displays
-   the latest result from the current session.
-4. Clinical Assessment: visually review the result, manually supply clinical LS
+   the latest result from the current session. With the mask visible, the specialist
+   rates its visual/spatial quality as Adequate, Partially adequate, or Inadequate.
+   No category is preselected; preparing a new box or rerunning clears the review.
+4. Clinical Assessment: review the selected segmentation quality, manually supply clinical LS
    (0-3) and optional annotator confidence, and finalize the Evaluation.
 
 The backend also accepts point prompts, but the current frontend uses bounding
-boxes. Finalization requires clinical LS; the API does not require a segmentation
-attempt before finalization. It does not select or validate a mask.
+boxes. New API finalizations require manual clinical LS, `reviewed_attempt_id`,
+and `segmentation_quality`. The reviewed attempt must belong to that Evaluation.
+Quality is a human qualitative judgment of SAM output, not clinical validation,
+ground truth, LS, or SAM confidence. PCI region and LS are supplied by the specialist.
 
 PostgreSQL and local storage preserve the pseudonymous ClinicalCase, exact
 original validated image bytes and their SHA-256, Evaluation, segmentation
 attempts, SAM masks, prompt data, SAM metadata, specialist clinical LS, and
-optional annotator confidence. The data model is:
+optional confidence in that LS assessment, plus the reviewed attempt ID and human
+segmentation quality. The data model is:
 
 `ClinicalCase -> Image -> Evaluation -> SegmentationAttempt`
 
 The stateless segmentation endpoint remains available separately. Backend PCI
-composition uses manually supplied regional LS, but a complete multi-region PCI
-frontend workflow is not implemented. There is no autonomous lesion detection,
+composition helper uses manually supplied regional LS; the experimental workflow
+does not calculate the complete PCI. There is no autonomous lesion detection,
 automatic clinical LS classification, or autonomous diagnosis.
 
 ## Image-coordinate integrity

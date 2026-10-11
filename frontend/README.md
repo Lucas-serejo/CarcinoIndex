@@ -89,9 +89,12 @@ SAM scores are not shown as clinical confidence.
 
 There are no point prompts, zoom/pan, history retrieval, comparisons, mask editing,
 or mask acceptance/reference/ground-truth semantics. After a successful persisted
-attempt, Continue to clinical assessment emits a payload-free event to the workflow.
-Preparing a new box clears that result and removes the action until another attempt
-succeeds. Leaving F3 destroys the workspace and releases its persisted-image object URL.
+attempt, exactly three native radio choices appear: Adequate, Partially adequate,
+and Inadequate, with no default. They rate only visual/spatial segmentation quality,
+not LS, diagnosis, or SAM confidence. Continue requires a selected category, a current
+successful attempt, and no active inference. It emits `reviewed_attempt_id` and
+`segmentation_quality` for the displayed result. Preparing a new box or rerunning
+segmentation clears both result and quality, including when a retry fails. Leaving F3 destroys the workspace and releases its persisted-image object URL.
 There is no router, resume-by-URL, browser persistence, or new runtime dependency.
 
 Refresh or leaving the page loses workflow state. No browser persistence is used.
@@ -102,8 +105,8 @@ cannot be deduplicated without backend idempotency, which is outside this iterat
 ## Clinical Assessment (F4)
 
 `ExperimentWorkflowComponent` owns the local `setup`, `segmentation`, and `clinical`
-phases. `ClinicalAssessmentComponent` receives only the persisted Evaluation ID,
-then re-reads `GET /api/v1/evaluations/{evaluation_id}`. The retrieved record is the
+phases and retains the segmentation review in memory. `ClinicalAssessmentComponent`
+receives that review and the persisted Evaluation ID, then re-reads `GET /api/v1/evaluations/{evaluation_id}`. The retrieved record is the
 source of truth for status and PCI region ID; the setup response is not used as the
 clinical record. An already finalized Evaluation immediately renders a read-only
 summary and emits the persisted response to the parent without posting again.
@@ -118,11 +121,13 @@ At review, the percentage is divided by 100 for the backend's 0–1 contract (73
 0.73, 0% becomes 0, and 100% becomes 1); blank becomes `null`. This is the specialist's
 confidence in the clinical LS assessment, not a SAM score or segmentation quality.
 
-Review assessment captures an immutable request snapshot and displays LS, confidence,
+Review assessment captures an immutable request snapshot and displays segmentation
+quality separately from LS, confidence,
 and persisted region ID before any POST. Back to edit retains the form values. The
 review warns that finalization is irreversible in this prototype. Finalize evaluation
 explicitly posts JSON to `POST /api/v1/evaluations/{evaluation_id}/finalize` with only
-`clinical_ls` and `annotator_confidence`; no attempt ID or segmentation data is sent.
+`clinical_ls`, `annotator_confidence`, `reviewed_attempt_id`, and `segmentation_quality`.
+The attempt UUID is not displayed. Quality is context from F3, not a second F4 choice.
 There is no short finalization timeout. Duplicate submission and returning to edit
 are blocked while finalization runs, and requests are cancelled on component destruction.
 
@@ -133,11 +138,12 @@ another GET. A finalized response replaces the review with the persisted summary
 a draft response keeps the same review available for retry. Failed refreshes also
 preserve the snapshot. There is no automatic retry, polling, or frontend idempotency.
 
-The final summary displays persisted LS, confidence percentage or Not provided,
+The final summary displays persisted segmentation quality (Not recorded for legacy
+records), LS, confidence percentage or Not provided,
 region ID, and Finalized status without editable controls. Both successful finalization
 and loading an already finalized record emit the persisted Evaluation to the parent,
 which marks the clinical step Complete. Only this regional Evaluation is finalized:
-finalization does not accept, reference, validate, or select a segmentation mask and
+the qualitative review does not accept or validate a mask as a reference or ground truth and
 does not mean a complete 13-region PCI score. Complete PCI composition remains out of scope.
 
 LS choices use a fieldset and legend with visible labels; confidence has a label and
