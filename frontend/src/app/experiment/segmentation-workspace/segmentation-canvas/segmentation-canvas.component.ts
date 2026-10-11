@@ -1,5 +1,10 @@
-import { ChangeDetectionStrategy, Component, computed, input, linkedSignal, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, linkedSignal, OnChanges, output, signal, SimpleChanges } from '@angular/core';
 import { ImageBox, MaskResponse } from '../../../api/api.models';
+
+export interface MaskDisplayState {
+  mask: MaskResponse | null;
+  reviewable: boolean;
+}
 
 @Component({
   selector: 'app-segmentation-canvas',
@@ -7,12 +12,13 @@ import { ImageBox, MaskResponse } from '../../../api/api.models';
   styleUrl: './segmentation-canvas.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class SegmentationCanvasComponent {
+export class SegmentationCanvasComponent implements OnChanges {
   readonly imageUrl = input.required<string>();
   readonly mask = input<MaskResponse | null>(null);
   readonly disabled = input(false);
   readonly boxChange = output<ImageBox | null>();
   readonly imageFailed = output<void>();
+  readonly maskDisplayChange = output<MaskDisplayState>();
   readonly width = signal(0);
   readonly height = signal(0);
   readonly box = signal<ImageBox | null>(null);
@@ -31,15 +37,43 @@ export class SegmentationCanvasComponent {
   });
   private drag: { id: number; x: number; y: number; target: SVGSVGElement } | null = null;
 
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['imageUrl']) {
+      this.width.set(0);
+      this.height.set(0);
+    }
+    if (changes['mask'] || changes['imageUrl']) {
+      this.maskDisplayChange.emit({ mask: this.mask(), reviewable: false });
+    }
+  }
+
+  imageDisplayFailed(): void {
+    this.width.set(0);
+    this.height.set(0);
+    this.maskDisplayChange.emit({ mask: this.mask(), reviewable: false });
+    this.imageFailed.emit();
+  }
+
   imageLoaded(event: Event): void {
     const image = event.target as HTMLImageElement;
     this.width.set(image.naturalWidth);
     this.height.set(image.naturalHeight);
   }
 
-  maskLoaded(event: Event): void {
+  maskLoaded(event: Event, mask: MaskResponse): void {
+    if (mask !== this.mask()) return;
     const image = event.target as HTMLImageElement;
-    this.maskDecodeError.set(image.naturalWidth !== this.width() || image.naturalHeight !== this.height());
+    const compatible = this.width() > 0 && this.height() > 0 &&
+      mask.width === this.width() && mask.height === this.height() &&
+      image.naturalWidth === this.width() && image.naturalHeight === this.height();
+    this.maskDecodeError.set(!compatible);
+    this.maskDisplayChange.emit({ mask, reviewable: compatible });
+  }
+
+  maskDisplayFailed(mask: MaskResponse): void {
+    if (mask !== this.mask()) return;
+    this.maskDecodeError.set(true);
+    this.maskDisplayChange.emit({ mask, reviewable: false });
   }
 
   pointerDown(event: PointerEvent): void {

@@ -3,7 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { firstValueFrom } from 'rxjs';
 import { EvaluationResponse, ImageBox, PersistedSegmentationResponse, SegmentationQuality, SegmentationReview, segmentationQualityLabels } from '../../api/api.models';
 import { ExperimentApiService } from '../../api/experiment-api.service';
-import { SegmentationCanvasComponent } from './segmentation-canvas/segmentation-canvas.component';
+import { MaskDisplayState, SegmentationCanvasComponent } from './segmentation-canvas/segmentation-canvas.component';
 
 @Component({
   selector: 'app-segmentation-workspace',
@@ -16,6 +16,7 @@ export class SegmentationWorkspaceComponent implements OnInit {
   readonly evaluationId = input.required<string>();
   readonly clinicalAssessmentRequested = output<SegmentationReview>();
   readonly quality = signal<SegmentationQuality | null>(null);
+  readonly reviewable = signal(false);
   readonly qualityChoices: SegmentationQuality[] = ['adequate', 'partially_adequate', 'inadequate'];
   readonly qualityLabels = segmentationQualityLabels;
   private readonly api = inject(ExperimentApiService);
@@ -66,6 +67,8 @@ export class SegmentationWorkspaceComponent implements OnInit {
   }
 
   imageFailed(): void {
+    this.reviewable.set(false);
+    this.quality.set(null);
     this.error.set('The persisted image could not be displayed. Try loading it again.');
     this.state.set('error');
     this.prepareBox(null);
@@ -76,6 +79,7 @@ export class SegmentationWorkspaceComponent implements OnInit {
     if (this.segmenting()) return;
     this.box.set(box);
     this.result.set(null);
+    this.reviewable.set(false);
     this.quality.set(null);
     this.segmentationError.set('');
   }
@@ -84,6 +88,7 @@ export class SegmentationWorkspaceComponent implements OnInit {
     const box = this.box();
     if (!box || this.segmenting() || this.state() !== 'ready' || this.evaluation()?.status !== 'draft') return;
     this.segmenting.set(true);
+    this.reviewable.set(false);
     this.result.set(null);
     this.quality.set(null);
     this.segmentationError.set('');
@@ -100,10 +105,17 @@ export class SegmentationWorkspaceComponent implements OnInit {
     }
   }
 
+  maskDisplayChanged(display: MaskDisplayState): void {
+    if (display.mask !== this.result()?.mask) return;
+    const reviewable = display.reviewable && this.state() === 'ready' && !this.segmenting();
+    this.reviewable.set(reviewable);
+    if (!reviewable) this.quality.set(null);
+  }
+
   continueToClinicalAssessment(): void {
     const attempt = this.result();
     const quality = this.quality();
-    if (this.state() === 'ready' && attempt && quality && !this.segmenting()) {
+    if (this.state() === 'ready' && attempt && this.reviewable() && quality && !this.segmenting()) {
       this.clinicalAssessmentRequested.emit({ reviewed_attempt_id: attempt.attempt_id, segmentation_quality: quality });
     }
   }
