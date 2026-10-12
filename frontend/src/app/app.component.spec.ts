@@ -1,3 +1,4 @@
+import { LanguageService } from './i18n/language.service';
 import { provideHttpClient } from '@angular/common/http';
 import {
   HttpTestingController,
@@ -27,6 +28,7 @@ describe('Research application shell', () => {
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
     http = TestBed.inject(HttpTestingController);
+    TestBed.inject(LanguageService).select('en');
     fixture = TestBed.createComponent(App);
     element = fixture.nativeElement as HTMLElement;
     fixture.detectChanges();

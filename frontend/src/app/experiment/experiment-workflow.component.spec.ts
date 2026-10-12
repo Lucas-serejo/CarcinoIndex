@@ -1,3 +1,4 @@
+import { LanguageService } from '../i18n/language.service';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -28,6 +29,7 @@ describe('Experiment setup', () => {
     });
     TestBed.configureTestingModule({ imports: [ExperimentWorkflowComponent], providers: [provideHttpClient(), provideHttpClientTesting()] });
     http = TestBed.inject(HttpTestingController);
+    TestBed.inject(LanguageService).select('en');
     fixture = TestBed.createComponent(ExperimentWorkflowComponent);
     component = fixture.componentInstance;
     element = fixture.nativeElement as HTMLElement;
@@ -76,6 +78,28 @@ describe('Experiment setup', () => {
   function fail(url: string): void {
     http.expectOne(url).flush({ error: { code: 'unavailable', message: 'Please try again.' } }, { status: 503, statusText: 'Unavailable' });
   }
+
+  it('preserves setup controls, preview and validation when switching language', () => {
+    loadRegions();
+    fillForm();
+    component.form.controls.patientCode.markAsTouched();
+    const values = component.form.getRawValue();
+    const preview = component.previewUrl();
+    const input = element.querySelector('#patient-code');
+    component.i18n.select('pt-BR');
+    fixture.detectChanges();
+    expect(element.textContent).toContain('Preparação do experimento');
+    expect(element.querySelector('button[type="submit"]')?.textContent).toContain('Iniciar avaliação');
+    expect(component.form.getRawValue()).toEqual(values);
+    expect(component.previewUrl()).toBe(preview);
+    expect(element.querySelector('#patient-code')).toBe(input);
+    expect(component.form.controls.patientCode.touched).toBe(true);
+    component.i18n.select('en');
+    fixture.detectChanges();
+    expect(element.textContent).toContain('Experiment setup');
+    expect(component.form.getRawValue()).toEqual(values);
+    http.expectNone('/api/v1/cases');
+  });
 
   it('loads backend PCI labels when opened', () => {
     expect(element.textContent).toContain('Loading PCI regions');

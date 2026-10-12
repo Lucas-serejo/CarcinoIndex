@@ -1,3 +1,4 @@
+import { LanguageService } from '../../i18n/language.service';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -22,6 +23,7 @@ describe('Clinical assessment', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({ imports: [ClinicalAssessmentComponent], providers: [provideHttpClient(), provideHttpClientTesting()] });
     http = TestBed.inject(HttpTestingController);
+    TestBed.inject(LanguageService).select('en');
     fixture = TestBed.createComponent(ClinicalAssessmentComponent);
     component = fixture.componentInstance;
     element = fixture.nativeElement as HTMLElement;
@@ -49,6 +51,28 @@ describe('Clinical assessment', () => {
     http.expectOne(requestUrl).flush({ error: { code: 'failed', message: 'Safe backend message.' } }, { status, statusText: 'Failure' });
     fixture.detectChanges();
   }
+
+  it('keeps the manual LS, confidence conversion and immutable review while switching languages', () => {
+    load();
+    review(73.5);
+    const snapshot = component.review();
+    component.i18n.select('pt-BR');
+    fixture.detectChanges();
+    expect(element.textContent).toContain('Parcialmente adequada');
+    expect(element.textContent).toContain('73,5%');
+    expect(component.review()).toBe(snapshot);
+    expect(component.form.getRawValue()).toEqual({ clinicalLs: 2, confidencePercent: 73.5 });
+    component.finalize();
+    const request = http.expectOne(`${url}/finalize`);
+    expect(request.request.body).toEqual({ clinical_ls: 2, annotator_confidence: .735,
+      reviewed_attempt_id: 'attempt-1', segmentation_quality: 'partially_adequate' });
+    request.flush({ ...finalized, clinical_ls: 2, annotator_confidence: .735 });
+    component.i18n.select('en');
+    fixture.detectChanges();
+    expect(component.state()).toBe('finalized');
+    expect(element.querySelector('input')).toBeNull();
+    expect(element.textContent).toContain('73.5%');
+  });
 
   it('retrieves persisted context and starts with exactly four unselected, labelled LS radios', () => {
     expect(element.textContent).toContain('Loading persisted evaluation');

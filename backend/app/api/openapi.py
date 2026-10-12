@@ -5,7 +5,7 @@ API_VERSION = "0.3.0"
 API_DESCRIPTION = (
     "CarcinoIndex is an experimental API for human-in-the-loop segmentation of "
     "peritoneal lesions using SAM 2.1, recording specialist-model interactions, "
-    "and computational support for Peritoneal Cancer Index (PCI) assessment. "
+    "with PCI-region context supplied by the specialist. "
     "Clinical LS assessments are provided by the user, not predicted by SAM.\n\n"
     "The system is not intended for autonomous diagnosis."
 )
