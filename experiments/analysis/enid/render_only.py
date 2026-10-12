@@ -131,7 +131,7 @@ def render_existing(*, dataset_root: Path, split_root: Path, results: Path, case
     # All validation above is read-only. Keep verified snapshots for rendering.
     output.mkdir(parents=True)
     provenance = dict(status="incomplete", mode="render-only", inference_executed=False,
-                      language=language, source_directory=str(source.resolve()),
+                      language=language, source_directory=source.resolve().name,
                       timestamp_utc=datetime.now(timezone.utc).isoformat(),
                       selected_annotation_ids=ids, sha256=hashes,
                       source_mask_sha256=mask_hashes, source_image_sha256=image_hashes,

@@ -32,7 +32,6 @@ export class LanguageService {
   error(value: string | null | undefined): string {
     if (!value) return '';
     if (this.language() === 'en') return value;
-    return Object.hasOwn(ptBR, value) ? ptBR[value]
-      : 'Não foi possível concluir a operação. Verifique os dados e tente novamente.';
+    return Object.hasOwn(ptBR, value) ? ptBR[value] : value;
   }
 }

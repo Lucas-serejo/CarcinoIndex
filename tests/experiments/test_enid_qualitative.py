@@ -273,6 +273,8 @@ def test_render_only_preserves_sources_and_reuses_exact_masks(saved_artifacts, m
     assert calls == [1, 2, 3]
     assert manifest["status"] == "complete" and manifest["inference_executed"] is False
     assert manifest["mode"] == "render-only" and len(manifest["source_mask_sha256"]) == 6
+    assert manifest["source_directory"] == source.name
+    assert str(source.parent) not in (saved_artifacts["output"] / "manifest.json").read_text(encoding="utf-8")
     assert all(p.read_bytes() == data for p, data in before.items())
     assert not (saved_artifacts["output"] / "cases.csv").exists()
 
