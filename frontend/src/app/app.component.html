@@ -1,11 +1,17 @@
-<a class="skip-link" href="#main">Skip to content</a>
+<a class="skip-link" href="#main">{{ i18n.text("Skip to content") }}</a>
 <header class="site-header">
   <div class="header-inner">
-    <a class="brand" href="./" aria-label="CarcinoIndex home">
+    <a class="brand" href="./" [attr.aria-label]="i18n.text('CarcinoIndex home')">
       <span class="brand-mark" aria-hidden="true">ci</span>
       <span>Carcino<span class="brand-accent">Index</span></span>
     </a>
-    <span class="prototype-label">Academic research prototype</span>
+    <div class="header-tools">
+    <span class="prototype-label">{{ i18n.text("Academic research prototype") }}</span>
+    <div class="language-selector" role="group" [attr.aria-label]="i18n.text('Language')">
+      <button type="button" lang="pt-BR" [attr.aria-pressed]="i18n.language() === 'pt-BR'" (click)="i18n.select('pt-BR')">PT-BR</button>
+      <button type="button" lang="en" [attr.aria-pressed]="i18n.language() === 'en'" (click)="i18n.select('en')">EN</button>
+    </div>
+    </div>
   </div>
 </header>
 
@@ -14,15 +20,14 @@
     <app-experiment-workflow />
   } @else {
   <div class="page-label">
-    <span aria-hidden="true"></span> Research workspace
+    <span aria-hidden="true"></span> {{ i18n.text("Research workspace") }}
   </div>
   <div class="workspace">
     <section class="introduction" aria-labelledby="intro-title">
-      <p class="eyebrow">Human-guided. Research-focused.</p>
-      <h1 id="intro-title">A clearer view.<br />A considered assessment.</h1>
+      <p class="eyebrow">{{ i18n.text("Specialist-guided segmentation") }}</p>
+      <h1 id="intro-title">{{ i18n.text("Assisted segmentation.") }}<br />{{ i18n.text("Specialist review.") }}</h1>
       <p class="intro-copy">
-        Human-guided segmentation of peritoneal lesions in laparoscopic images,
-        with computational support for Peritoneal Cancer Index (PCI) assessment.
+        {{ i18n.text("Investigate SAM 2.1 segmentations of lesions previously indicated by the specialist.") }}
       </p>
       <div class="start-area">
         <button
@@ -31,31 +36,30 @@
           (click)="startEvaluation()"
           aria-describedby="workflow-note"
         >
-          Start evaluation <span aria-hidden="true">&rarr;</span>
+          {{ i18n.text("Start evaluation") }} <span aria-hidden="true">&rarr;</span>
         </button>
         <p id="workflow-note">
           @if (canStart()) {
-            Prepare a pseudonymous case, an image, and a PCI region for evaluation.
+            {{ i18n.text("Prepare a pseudonymous case, an image, and a PCI region for evaluation.") }}
           } @else if (health().status === 'success') {
-            The segmentation model must be loaded before starting an evaluation.
+            {{ i18n.text("The segmentation model must be loaded before starting an evaluation.") }}
           } @else {
-            A successful backend and model availability check is required to start.
+            {{ i18n.text("A successful backend and model availability check is required to start.") }}
           }
         </p>
       </div>
       <div class="research-note">
-        <span class="note-label">Built around expert judgment</span>
+        <span class="note-label">{{ i18n.text("Built around expert judgment") }}</span>
         <p>
-          SAM 2.1 assists segmentation. The researcher guides and reviews the
-          result; clinical interpretation remains with the specialist.
+          {{ i18n.text("SAM 2.1 assists segmentation. The specialist indicates the lesion and reviews the result; clinical interpretation remains with the specialist.") }}
         </p>
       </div>
     </section>
 
     <aside class="status-panel" aria-labelledby="status-title">
       <div class="panel-heading">
-        <h2 id="status-title">System status</h2>
-        <span class="eyebrow">Live check</span>
+        <h2 id="status-title">{{ i18n.text("System status") }}</h2>
+        <span class="eyebrow">{{ i18n.text("Live check") }}</span>
       </div>
       @let state = health();
       <div
@@ -76,39 +80,35 @@
               <span class="status-dot" aria-hidden="true"></span>
               @switch (state.status) {
                 @case ("loading") {
-                  Checking…
+                  {{ i18n.text("Checking…") }}
                 }
                 @case ("success") {
-                  Ready
+                  {{ i18n.text("Ready") }}
                 }
                 @case ("error") {
-                  Unavailable
+                  {{ i18n.text("Unavailable") }}
                 }
               }
             </dd>
           </div>
           <div class="model-row">
-            <dt>Segmentation model</dt>
+            <dt>{{ i18n.text("Segmentation model") }}</dt>
             <dd class="model-name">
-              {{
-                state.status === "success"
+              {{ i18n.text(state.status === "success"
                   ? modelName(state.response.model.name)
-                  : "Awaiting model information"
-              }}
+                  : "Awaiting model information") }}
             </dd>
             <dd class="model-detail">
               @if (state.status === "success") {
-                {{ state.response.model.loaded ? "Loaded" : "Not loaded" }}
+                {{ i18n.text(state.response.model.loaded ? "Loaded" : "Not loaded") }}
                 <span aria-hidden="true"> · </span
                 >{{ state.response.model.device }}
                 <span aria-hidden="true"> · </span
                 >{{ state.response.model.dtype }}
               } @else {
-                {{
-                  state.status === "loading"
+                {{ i18n.text(state.status === "loading"
                     ? "Connecting to the research backend"
-                    : "Model status could not be checked"
-                }}
+                    : "Model status could not be checked") }}
               }
             </dd>
           </div>
@@ -119,13 +119,13 @@
         >
           @switch (state.status) {
             @case ("loading") {
-              Checking backend and model availability.
+              {{ i18n.text("Checking backend and model availability.") }}
             }
             @case ("success") {
-              Availability indicates technical status, not clinical validation.
+              {{ i18n.text("Availability indicates technical status, not clinical validation.") }}
             }
             @case ("error") {
-              {{ state.message }}
+              {{ i18n.error(state.message) }}
             }
           }
         </p>
@@ -135,7 +135,7 @@
         (click)="checkHealth()"
         [disabled]="state.status === 'loading'"
       >
-        {{ state.status === "error" ? "Try again" : "Refresh status" }}
+        {{ i18n.text(state.status === "error" ? "Try again" : "Refresh status") }}
         <span aria-hidden="true">↻</span>
       </button>
     </aside>
@@ -143,32 +143,29 @@
 
   <section class="approach" aria-labelledby="approach-title">
     <div class="approach-heading">
-      <h2 id="approach-title">The research approach</h2>
-      <span>Human expertise at every step</span>
+      <h2 id="approach-title">{{ i18n.text("The research approach") }}</h2>
+      <span>{{ i18n.text("Human expertise at every step") }}</span>
     </div>
     <ol>
       <li>
         <span class="step-number" aria-hidden="true">01</span>
-        <h3>Guide the segmentation</h3>
+        <h3>{{ i18n.text("Indicate the lesion") }}</h3>
         <p>
-          Explore SAM 2.1 assistance for segmenting specialist-indicated
-          peritoneal lesions in laparoscopic images.
+          {{ i18n.text("Explore SAM 2.1 assistance for segmenting specialist-indicated peritoneal lesions in laparoscopic images.") }}
         </p>
       </li>
       <li>
         <span class="step-number" aria-hidden="true">02</span>
-        <h3>Review with intention</h3>
+        <h3>{{ i18n.text("Review the segmentation") }}</h3>
         <p>
-          Keep human review central to interpreting and validating segmentation
-          results.
+          {{ i18n.text("Visually assess the segmentation mask produced from the specialist prompt.") }}
         </p>
       </li>
       <li>
         <span class="step-number" aria-hidden="true">03</span>
-        <h3>Support PCI assessment</h3>
+        <h3>{{ i18n.text("Record the clinical context") }}</h3>
         <p>
-          Study computational support for structured assessment, informed by
-          specialist judgment.
+          {{ i18n.text("PCI-region context and clinical assessment supplied by the specialist.") }}
         </p>
       </li>
     </ol>
@@ -178,6 +175,6 @@
 
 <footer>
   <span
-    >CarcinoIndex <span aria-hidden="true">/</span> Academic TCC project</span
-  ><span>Research prototype · Not for autonomous diagnosis</span>
+    >CarcinoIndex <span aria-hidden="true">/</span> {{ i18n.text("Academic TCC project") }}</span
+  ><span>{{ i18n.text("Research prototype · Not for autonomous diagnosis") }}</span>
 </footer>

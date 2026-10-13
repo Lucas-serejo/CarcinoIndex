@@ -1,11 +1,34 @@
 # CarcinoIndex frontend
 
 Angular 21 standalone application shell for the academic research prototype.
+Experimental platform for assisted segmentation of lesions in laparoscopic images;
+PCI-region context and clinical assessment are supplied by the specialist.
 Experiment Setup is implemented alongside system status and project context.
 Start evaluation becomes available after a successful health check with the model loaded.
 The F3 Segmentation Workspace supports specialist-guided bounding boxes and saved
 segmentation attempts. F4 Clinical Assessment records specialist-supplied LS through
 an inline review and persisted Evaluation finalization.
+
+## Presentation and language
+
+The interface starts in **pt-BR**. Native PT-BR / EN buttons in the header switch
+language in memory without refresh, routing or browser storage. The shared
+`src/app/i18n/language.service.ts` and `translations.ts` localize rendered copy,
+states, labels, validation, errors and accessibility text, and update the document
+language, title and description. Percentage formatting follows the selected locale.
+Known backend error messages are localized at display time; unrecognized messages
+use a safe Portuguese fallback, while English retains the server message.
+
+User-entered identifiers and API data remain untouched. Quality enum values,
+manual LS, confidence conversion, reviewed attempt IDs, retry stages and the
+mask-display/reviewable gates keep their existing contracts. Language switching
+does not recreate the workflow or mask image. Tests cover switching during setup,
+segmentation review and finalization review, including the exact outgoing payload.
+
+System typography, a restrained green palette, visible focus, native radio cards,
+grouped setup fields and responsive panels provide the academic presentation.
+The canvas preserves its original-image coordinate mapping and aspect ratio.
+No runtime dependency, remote font, telemetry or storage is added.
 
 ## Experiment Setup
 

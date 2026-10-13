@@ -1,3 +1,4 @@
+import { LanguageService } from '../i18n/language.service';
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
@@ -22,6 +23,7 @@ type Stage = 'Creating clinical case' | 'Uploading image' | 'Creating evaluation
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ExperimentWorkflowComponent {
+  readonly i18n = inject(LanguageService);
   private readonly api = inject(ExperimentApiService);
   private readonly destroyRef = inject(DestroyRef);
   readonly regions = signal<Region[]>([]);
