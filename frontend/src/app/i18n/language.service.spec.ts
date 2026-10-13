@@ -36,6 +36,7 @@ describe('Presentation language', () => {
     expect(language.text('Partially adequate')).toBe('Parcialmente adequada');
     expect(language.text('partially_adequate')).toBe('partially_adequate');
     expect(language.error('The request fields are invalid or incomplete.')).toContain('inválidos');
+    expect(language.error('Unmapped backend detail.')).toBe('Unmapped backend detail.');
     language.select('en');
     expect(language.text('Partially adequate')).toBe('Partially adequate');
   });

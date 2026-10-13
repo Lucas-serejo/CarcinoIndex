@@ -57,9 +57,9 @@ The renderer uses verified in-memory snapshots of original ENID images and saved
 masks, canonical bbox, authoritative metrics, the same colors, ALPHA, 2x2 layout,
 12x8 figure, 180 DPI and full-frame panel limits. It writes only localized
 `cases/annotation_XXXXXX/comparison.png` and a **new** provenance manifest. That
-manifest records source directory, language, `mode: render-only`,
-`inference_executed: false`, ordered IDs, input/mask/image SHA-256 hashes and
-completion state. No source CSV, JSON, mask or original comparison is modified
+manifest records the source directory basename (no absolute path), language,
+`mode: render-only`, `inference_executed: false`, ordered IDs, input/mask/image
+SHA-256 hashes and completion state. The hashes are the provenance record. No source CSV, JSON, mask or original comparison is modified
 or copied over. Render failures leave an incomplete new manifest. Generated
 artifacts remain ignored under `experiments/outputs/`.
 
