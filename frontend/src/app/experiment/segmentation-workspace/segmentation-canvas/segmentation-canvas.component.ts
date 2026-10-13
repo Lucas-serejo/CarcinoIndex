@@ -1,5 +1,4 @@
-import { LanguageService } from '../../../i18n/language.service';
-import { inject, ChangeDetectionStrategy, Component, computed, input, linkedSignal, OnChanges, output, signal, SimpleChanges } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, linkedSignal, OnChanges, output, signal, SimpleChanges } from '@angular/core';
 import { ImageBox, MaskResponse } from '../../../api/api.models';
 
 export interface MaskDisplayState {
@@ -14,7 +13,6 @@ export interface MaskDisplayState {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SegmentationCanvasComponent implements OnChanges {
-  readonly i18n = inject(LanguageService);
   readonly imageUrl = input.required<string>();
   readonly mask = input<MaskResponse | null>(null);
   readonly disabled = input(false);

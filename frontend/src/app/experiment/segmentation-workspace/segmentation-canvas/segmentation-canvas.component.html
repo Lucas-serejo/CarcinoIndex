@@ -1,15 +1,15 @@
 <div class="image-stage">
-  <img class="original" [src]="imageUrl()" [attr.alt]="i18n.text('Persisted laparoscopic image for specialist-guided segmentation')"
+  <img class="original" [src]="imageUrl()" alt="Persisted laparoscopic image for specialist-guided segmentation"
     draggable="false" (load)="imageLoaded($event)" (error)="imageDisplayFailed()" />
   @if (maskUrl(); as url) {
     <!-- A new mask must produce its own load event, even when its pixels are identical. -->
     @for (currentMask of [mask()!]; track currentMask) {
-      <img class="mask" [src]="url" [attr.alt]="i18n.text('Latest saved segmentation mask')" draggable="false"
+      <img class="mask" [src]="url" alt="Latest saved segmentation mask" draggable="false"
         (load)="maskLoaded($event, currentMask)" (error)="maskDisplayFailed(currentMask)" />
     }
   }
   <svg class="interaction" [class.disabled]="disabled()" [attr.viewBox]="'0 0 ' + width() + ' ' + height()"
-    [attr.aria-label]="i18n.text('Bounding box drawing area')" aria-describedby="drawing-instructions"
+    aria-label="Bounding box drawing area" aria-describedby="drawing-instructions"
     (pointerdown)="pointerDown($event)" (pointermove)="pointerMove($event)"
     (pointerup)="pointerUp($event)" (pointercancel)="pointerCancel($event)" (lostpointercapture)="pointerCancel($event)">
     @if (box(); as bounds) {
@@ -18,4 +18,4 @@
     }
   </svg>
 </div>
-@if (maskError(); as error) { <p class="error" role="alert">{{ i18n.error(error) }}</p> }
+@if (maskError(); as error) { <p class="error" role="alert">{{ error }}</p> }

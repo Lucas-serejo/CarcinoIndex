@@ -38,52 +38,6 @@ def write_results(tmp_path, rows):
     return path
 
 
-def test_rendering_language_does_not_change_any_numeric_artifact(tmp_path, rows):
-    results = write_results(tmp_path, rows)
-    before = results.read_bytes()
-    en, pt = tmp_path / "en", tmp_path / "pt"
-    assert analyze_results(results=results, output=en) == analyze_results(results=results, output=pt, language="pt-BR")
-    for name in ("descriptive_summary.json", "descriptive_by_split.csv", "dice_distribution.csv", "extreme_cases.csv"):
-        assert (en / name).read_bytes() == (pt / name).read_bytes()
-    assert results.read_bytes() == before
-
-
-def test_render_only_imports_no_model():
-    result = subprocess.run([sys.executable, "-c",
-        "import sys; import experiments.analysis.enid.render_only; "
-        "assert 'torch' not in sys.modules; assert 'sam2' not in sys.modules; "
-        "assert 'backend.ai.segmentation.sam_segmenter' not in sys.modules"], capture_output=True, text=True)
-    assert result.returncode == 0, result.stderr
-
-
-def test_localized_quantitative_figures_preserve_plot_geometry_and_values(tmp_path, rows, monkeypatch):
-    from experiments.analysis.enid.analysis import _figures
-    from matplotlib.figure import Figure
-    saved = []
-    save = Figure.savefig
-    def capture(figure, *args, **kwargs):
-        save(figure, *args, **kwargs)
-        axis = figure.axes[0]
-        saved.append(dict(bounds=axis.get_position().bounds, xlim=axis.get_xlim(), ylim=axis.get_ylim(),
-                          scale=axis.get_xscale(), title=axis.get_title(),
-                          bars=[(b.get_x(), b.get_width(), b.get_height()) for b in axis.patches],
-                          points=[c.get_offsets().copy() for c in axis.collections],
-                          lines=[line.get_xdata().copy() for line in axis.lines]))
-    monkeypatch.setattr(Figure, "savefig", capture)
-    frame = load_results(write_results(tmp_path, rows))
-    for language in ("en", "pt-BR"):
-        output = tmp_path / language
-        output.mkdir()
-        _figures(frame, summarize(frame), output, language)
-    for en, pt in zip(saved[:4], saved[4:]):
-        assert en["title"] != pt["title"]
-        for key in ("bounds", "xlim", "ylim", "bars"):
-            np.testing.assert_allclose(en[key], pt[key], atol=1e-10, rtol=0)
-        assert en["scale"] == pt["scale"]
-        for key in ("points", "lines"):
-            for a, b in zip(en[key], pt[key]): np.testing.assert_array_equal(a, b)
-
-
 @pytest.mark.parametrize("column", [
     "dataset", "split", "group_id", "image_id", "annotation_id", "file_name",
     "width", "height", "reference_area_pixels", "predicted_area_pixels", "dice", "iou",

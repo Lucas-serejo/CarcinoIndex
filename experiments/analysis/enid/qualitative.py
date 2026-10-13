@@ -10,7 +10,11 @@ from io import BytesIO
 from pathlib import Path, PureWindowsPath
 
 import numpy as np
+import pandas as pd
 from PIL import Image
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.figure import Figure
+from matplotlib.patches import Patch, Rectangle
 
 from backend.ai.segmentation.sam_segmenter import DEFAULT_MODEL_CONFIG, MODEL_NAME, SAM2Segmenter
 from experiments.benchmarks.enid.dataset import (
@@ -19,8 +23,86 @@ from experiments.benchmarks.enid.dataset import (
 from experiments.benchmarks.enid.runner import sha256_file
 from .analysis import extreme_cases, load_results
 
-from .selection import TOLERANCE, REASONS, IDENTITY, load_cases
-from .rendering import COLORS, ALPHA, _comparison
+TOLERANCE = 1e-6
+REASONS = (
+    "lowest_dice", "highest_dice", "smallest_predicted_reference_area_ratio",
+    "largest_predicted_reference_area_ratio",
+)
+IDENTITY = ("image_id", "file_name", "split", "group_id")
+COLORS = ("#009E73", "#0072B2", "#D55E00")
+ALPHA = 0.5
+
+
+def load_cases(source, results: pd.DataFrame) -> tuple[int, dict]:
+    """Verify the quantitative selection and preserve every reason/rank pair."""
+    frame = pd.read_csv(source, dtype=str, keep_default_na=False)
+    required = {"annotation_id", *IDENTITY, "selection_reason", "rank"}
+    if missing := required - set(frame.columns):
+        raise ValueError(f"Missing cases columns: {', '.join(sorted(missing))}")
+    if frame.empty:
+        raise ValueError("Cases must contain at least one row.")
+    for field in ("annotation_id", "image_id", "rank"):
+        values = pd.to_numeric(frame[field], errors="raise")
+        if not np.isfinite(values).all() or (values % 1 != 0).any():
+            raise ValueError(f"Cases {field} must contain finite integers.")
+        frame[field] = values.map(int)
+    if (frame['rank'] < 1).any() or not frame.selection_reason.isin(REASONS).all():
+        raise ValueError("Invalid selection reason or rank.")
+    authoritative = results.set_index("annotation_id").to_dict("index")
+    selections = {}
+    for row in frame.to_dict("records"):
+        aid = row["annotation_id"]
+        if aid not in authoritative:
+            raise ValueError(f"Selected annotation {aid} missing from results.")
+        if any(row[k] != authoritative[aid][k] for k in IDENTITY):
+            raise ValueError(f"Cases identity disagrees with results for annotation {aid}.")
+        selections.setdefault(aid, []).append((row["selection_reason"], row["rank"]))
+    columns = ["annotation_id", "selection_reason", "rank"]
+    supplied = sorted(frame[columns].itertuples(index=False, name=None))
+    expected = sorted(extreme_cases(results)[columns].itertuples(index=False, name=None))
+    if supplied != expected:
+        raise ValueError("Cases must match the deterministic quantitative selection from results.")
+    return len(frame), {aid: sorted(pairs) for aid, pairs in sorted(selections.items())}
+
+
+def _comparison(path, rgb, reference, prediction, sample, benchmark):
+    figure = Figure(figsize=(12, 8), layout="constrained")
+    FigureCanvasAgg(figure)
+    axes = figure.subplots(2, 2).ravel()
+    for axis, label in zip(axes, (
+        "A. Original + reference bbox", "B. ENID reference segmentation",
+        "C. SAM selected mask", "D. Mask agreement / disagreement",
+    )):
+        axis.imshow(rgb, interpolation="nearest")
+        axis.set_title(label, fontsize=11)
+        axis.set_axis_off()
+    x, y, w, h = sample.bbox_xywh
+    axes[0].add_patch(Rectangle((x, y), w, h, fill=False, edgecolor=COLORS[1], linewidth=1.5))
+    from matplotlib.colors import to_rgba
+
+    def overlay(axis, masks, colors):
+        layer = np.zeros((*reference.shape, 4))
+        for mask, color in zip(masks, colors):
+            layer[mask] = to_rgba(color, ALPHA)
+        axis.imshow(layer, interpolation="nearest")
+
+    overlay(axes[1], [reference], [COLORS[1]])
+    overlay(axes[2], [prediction], [COLORS[2]])
+    overlay(axes[3], [reference & prediction, reference & ~prediction,
+                      prediction & ~reference], COLORS)
+    axes[3].legend(handles=[Patch(color=color, label=label) for color, label in
+                           zip(COLORS, ("Both", "Reference only", "SAM only"))],
+                   loc="lower center", fontsize=8, ncol=3)
+    # Fix bounds after adding the rectangle: the complete original frame is retained.
+    for axis in axes:
+        axis.set_xlim(-0.5, sample.width - 0.5)
+        axis.set_ylim(sample.height - 0.5, -0.5)
+    figure.suptitle(
+        f"ENID annotation {sample.annotation_id} | {sample.split} | "
+        f"Benchmark Dice {benchmark['dice']:.3f}, IoU {benchmark['iou']:.3f} | "
+        f"SAM selected score {benchmark['selected_score']:.3f}", fontsize=11)
+    figure.savefig(path, dpi=180)
+    figure.clear()
 
 
 def render_cases(*, dataset_root: Path, split_root: Path, results: Path, cases: Path,

@@ -1,4 +1,3 @@
-import { LanguageService } from '../../../i18n/language.service';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ImageBox } from '../../../api/api.models';
 import { SegmentationCanvasComponent } from './segmentation-canvas.component';
@@ -11,7 +10,6 @@ describe('Segmentation canvas geometry', () => {
   let emitted = vi.fn<(box: ImageBox | null) => void>();
 
   beforeEach(() => {
-    TestBed.inject(LanguageService).select('en');
     fixture = TestBed.createComponent(SegmentationCanvasComponent);
     component = fixture.componentInstance;
     fixture.componentRef.setInput('imageUrl', 'blob:persisted');
