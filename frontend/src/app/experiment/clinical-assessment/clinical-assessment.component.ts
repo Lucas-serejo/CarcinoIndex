@@ -1,4 +1,3 @@
-import { LanguageService } from '../../i18n/language.service';
 import { PercentPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, input, OnInit, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -21,7 +20,6 @@ type AssessmentState = 'loading' | 'editing' | 'reviewing' | 'finalizing' | 'fin
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ClinicalAssessmentComponent implements OnInit {
-  readonly i18n = inject(LanguageService);
   readonly evaluationId = input.required<string>();
   readonly segmentationReview = input.required<SegmentationReview>();
   readonly qualityLabels = segmentationQualityLabels;

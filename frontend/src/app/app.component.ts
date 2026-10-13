@@ -1,4 +1,3 @@
-import { LanguageService } from './i18n/language.service';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -25,7 +24,6 @@ type HealthState =
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class App {
-  readonly i18n = inject(LanguageService);
   private readonly api = inject(ExperimentApiService);
   private readonly destroyRef = inject(DestroyRef);
   readonly health = signal<HealthState>({ status: 'loading' });

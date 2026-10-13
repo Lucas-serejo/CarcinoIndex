@@ -6,11 +6,6 @@ h2, legend { font-size: 16px; font-weight: 600; }
 .assessment { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 48px; margin-top: 28px; align-items: start; }
 fieldset { border: 1px solid var(--border); border-radius: 4px; padding: 16px; margin: 0 0 24px; min-width: 0; }
 .ls-choice { display: flex; align-items: center; gap: 12px; padding: 10px 0; cursor: pointer; }
-.ls-choice { padding: 12px; border: 1px solid var(--border); border-radius: 4px; margin-block: 8px; }
-.ls-choice:has(:checked) { border-color: var(--accent); background: var(--surface-subtle); }
-.segmentation-summary { padding: 16px 20px; background: var(--surface-subtle); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 24px; }
-.segmentation-summary h2 { margin-top: 0; }
-.segmentation-summary p { margin-bottom: 0; }
 input[type='radio'] { width: 18px; height: 18px; accent-color: var(--accent); }
 .field > label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px; }
 input[type='number'] { width: 150px; max-width: 100%; padding: 11px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); font: inherit; }

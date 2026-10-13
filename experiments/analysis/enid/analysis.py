@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from .localization import localize_figure, validate_language
-
 import hashlib
 import json
 from io import BytesIO
@@ -142,14 +140,13 @@ def extreme_cases(frame: pd.DataFrame) -> pd.DataFrame:
     return pd.concat(selections, ignore_index=True)
 
 
-def _figures(frame: pd.DataFrame, summary: dict, output: Path, language="en") -> None:
+def _figures(frame: pd.DataFrame, summary: dict, output: Path) -> None:
     def figure():
         fig = Figure(figsize=(6.4, 4.2), layout="constrained")
         FigureCanvasAgg(fig)
         return fig, fig.subplots()
 
     def save(fig, name):
-        localize_figure(fig, language)
         fig.savefig(output / f"{name}.png", dpi=180, metadata={"Software": "CarcinoIndex"})
         fig.clear()
 
@@ -178,9 +175,8 @@ def _figures(frame: pd.DataFrame, summary: dict, output: Path, language="en") ->
         save(fig, "selected_score_vs_dice" if name == "selected_score" else "reference_area_vs_dice")
 
 
-def analyze_results(*, results: Path, output: Path, language="en") -> dict:
+def analyze_results(*, results: Path, output: Path) -> dict:
     """Read only the CSV and write eight artifacts to a new or empty directory."""
-    validate_language(language)
     results, output = Path(results), Path(output)
     if output.exists() and (not output.is_dir() or any(output.iterdir())):
         raise ValueError("Output directory must be empty; use a new analysis directory.")
@@ -195,5 +191,5 @@ def analyze_results(*, results: Path, output: Path, language="en") -> dict:
                         ("dice_distribution", distribution(frame)),
                         ("extreme_cases", extreme_cases(frame))):
         table.to_csv(output / f"{name}.csv", index=False, lineterminator="\n")
-    _figures(frame, summary, output, language)
+    _figures(frame, summary, output)
     return summary

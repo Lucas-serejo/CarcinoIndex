@@ -17,7 +17,6 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--results", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--language", choices=("en", "pt-BR"), default="en")
     args = parser.parse_args(argv)
     try:
         summary = analyze_results(**vars(args))

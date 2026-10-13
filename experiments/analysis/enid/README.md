@@ -6,67 +6,6 @@ results chapter. It does not load SAM, a checkpoint, images, COCO annotations,
 the database, API, or frontend. No benchmark rerun or overlays are performed.
 Only the existing numpy, pandas, and matplotlib dependencies are used.
 
-## Rendering language (TCC figures)
-
-The quantitative command accepts `--language en` (default) or `--language pt-BR`.
-Portuguese figures are intended for the monograph. Language changes visible text
-only: numerical artifacts come from the same authoritative `results.csv`, with
-unchanged statistics, correlations, bins and deterministic selection. Original
-outputs are never overwritten. No experimental data or protocol is changed.
-
-```powershell
-python scripts/analyze_enid_results.py `
-  --results experiments/outputs/enid-full-01/results.csv `
-  --output experiments/outputs/enid-analysis-ptbr `
-  --language pt-BR
-```
-
-This produces `dice_distribution.png`, `iou_distribution.png`,
-`selected_score_vs_dice.png` and `reference_area_vs_dice.png`, plus the unchanged
-CSV/JSON summaries. The original English layout is resolved at 180 DPI before
-translating text, preserving axes geometry and the existing figure size/style.
-
-For a **completed qualitative run**, use the separate read-only command below.
-It does not import or execute SAM, require a checkpoint, or recreate predictions.
-The original `render_cases()` and experimental CLI retain their existing behavior.
-
-```powershell
-python scripts/localize_enid_qualitative.py `
-  --dataset-root datasets/raw/enid/ENID_v1.0_dataset `
-  --split-root datasets/raw/enid_split/ENID_v1.0_dataset `
-  --results experiments/outputs/enid-full-01/results.csv `
-  --cases experiments/outputs/enid-analysis-01/extreme_cases.csv `
-  --source experiments/outputs/enid-qualitative-01 `
-  --output experiments/outputs/enid-qualitative-ptbr `
-  --language pt-BR
-```
-
-`--language en` is also supported; this separate command defaults to `pt-BR`.
-Its output directory must not exist and must be outside the source, dataset and
-split directories. Before creating it, the command checks the completed source
-manifest, protocol, recorded input hashes, deterministic IDs/reasons/ranks and
-cases ordering; canonical identity/bbox; binary PNG masks and dimensions; exact
-reference-mask equality with COCO; exact areas and selected index; and Dice/IoU
-agreement within the existing `1e-6` tolerance. Benchmark score/index values must
-match the recorded cases and are never inferred from masks. Optional bbox fields
-in the results CSV are compared numerically without changing the input data.
-The completed 358-annotation/160-image run retains exactly its 16 unique selected
-cases. Synthetic subsets remain supported using the same selection validation.
-
-The renderer uses verified in-memory snapshots of original ENID images and saved
-masks, canonical bbox, authoritative metrics, the same colors, ALPHA, 2x2 layout,
-12x8 figure, 180 DPI and full-frame panel limits. It writes only localized
-`cases/annotation_XXXXXX/comparison.png` and a **new** provenance manifest. That
-manifest records the source directory basename (no absolute path), language,
-`mode: render-only`, `inference_executed: false`, ordered IDs, input/mask/image
-SHA-256 hashes and completion state. The hashes are the provenance record. No source CSV, JSON, mask or original comparison is modified
-or copied over. Render failures leave an incomplete new manifest. Generated
-artifacts remain ignored under `experiments/outputs/`.
-
-The source scientific manifest does not contain frame/mask hashes. These files
-are checked against the canonical geometry and scientific consistency contract;
-the new provenance records their exact current bytes for future verification.
-
 ## Run
 
 From the repository root, in the project's Python environment (PowerShell):

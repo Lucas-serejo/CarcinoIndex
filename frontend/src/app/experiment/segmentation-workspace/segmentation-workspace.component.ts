@@ -1,4 +1,3 @@
-import { LanguageService } from '../../i18n/language.service';
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, input, OnInit, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { firstValueFrom } from 'rxjs';
@@ -14,7 +13,6 @@ import { MaskDisplayState, SegmentationCanvasComponent } from './segmentation-ca
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SegmentationWorkspaceComponent implements OnInit {
-  readonly i18n = inject(LanguageService);
   readonly evaluationId = input.required<string>();
   readonly clinicalAssessmentRequested = output<SegmentationReview>();
   readonly quality = signal<SegmentationQuality | null>(null);

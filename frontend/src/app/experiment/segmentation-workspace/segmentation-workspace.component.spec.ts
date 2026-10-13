@@ -1,4 +1,3 @@
-import { LanguageService } from '../../i18n/language.service';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -30,7 +29,6 @@ describe('Persisted segmentation workspace', () => {
     });
     TestBed.configureTestingModule({ imports: [SegmentationWorkspaceComponent], providers: [provideHttpClient(), provideHttpClientTesting()] });
     http = TestBed.inject(HttpTestingController);
-    TestBed.inject(LanguageService).select('en');
     fixture = TestBed.createComponent(SegmentationWorkspaceComponent);
     component = fixture.componentInstance;
     element = fixture.nativeElement as HTMLElement;
@@ -93,29 +91,6 @@ describe('Persisted segmentation workspace', () => {
     component.quality.set(null);
     subscription.unsubscribe();
   }
-
-  it('preserves mask DOM, bbox, reviewability and canonical quality across languages', async () => {
-    await ready();
-    component.prepareBox(box);
-    await submit();
-    loadMask();
-    component.quality.set('partially_adequate');
-    fixture.detectChanges();
-    const mask = element.querySelector('.mask');
-    const result = component.result();
-    component.i18n.select('pt-BR');
-    fixture.detectChanges();
-    expect(element.textContent).toContain('Parcialmente adequada');
-    expect(component.box()).toBe(box);
-    expect(component.result()).toBe(result);
-    expect(element.querySelector('.mask')).toBe(mask);
-    expect(component.reviewable()).toBe(true);
-    expect(component.quality()).toBe('partially_adequate');
-    const emitted = vi.fn();
-    component.clinicalAssessmentRequested.subscribe(emitted);
-    component.continueToClinicalAssessment();
-    expect(emitted).toHaveBeenCalledWith({ reviewed_attempt_id: 'attempt-1', segmentation_quality: 'partially_adequate' });
-  });
 
   it('reconstructs from only an evaluation ID, loads in order and releases the persisted URL', async () => {
     expect(element.textContent).toContain('Loading persisted evaluation');
