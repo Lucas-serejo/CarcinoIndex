@@ -152,5 +152,5 @@ PostgreSQL tests require a disposable database configured through
 require an external checkpoint and CUDA. `notebooks/sam_validation.ipynb` and
 `scripts/run_sam2_real_image.py` support synthetic/non-clinical exploration.
 
-Authentication, mask editing/acceptance, dataset export, automatic LS, and a
-complete PCI frontend are outside the implemented MVP.
+Authentication, mask editing/acceptance, bulk image/mask dataset export, automatic LS,
+and a complete PCI frontend are outside the implemented MVP.
