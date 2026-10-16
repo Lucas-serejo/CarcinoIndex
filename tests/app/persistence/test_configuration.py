@@ -46,8 +46,11 @@ def test_migration_renders_postgresql_without_connection(monkeypatch):
     assert "annotator_confidence" in sql
     assert "ck_evaluation_segmentation_quality" in sql
     assert "ck_evaluation_segmentation_review_pair" in sql
+    assert "ALTER COLUMN pci_region_id DROP NOT NULL" in sql
+    assert "DROP CONSTRAINT ck_evaluation_finalized_ls" in sql
+    assert "clinical_ls IS NOT NULL OR annotator_confidence IS NULL" in sql
     assert "original_filename" not in sql
     output.truncate(0)
     output.seek(0)
-    command.downgrade(config, "0002_segmentation_review:base", sql=True)
+    command.downgrade(config, "0003_optional_clinical_context:base", sql=True)
     assert "DROP TABLE clinical_cases" in output.getvalue()

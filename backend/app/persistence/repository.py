@@ -38,7 +38,7 @@ class ExperimentRepository:
         self.session.flush()
         return image
 
-    def create_evaluation(self, *, image_id: UUID, pci_region_id: int,
+    def create_evaluation(self, *, image_id: UUID, pci_region_id: int | None,
                           annotator_code: str, clinical_ls: int | None = None,
                           annotator_confidence: float | None = None) -> Evaluation:
         evaluation = Evaluation(image_id=image_id, pci_region_id=pci_region_id,
@@ -81,11 +81,13 @@ class ExperimentRepository:
         self.session.flush()
         return attempt
 
-    def finalize_evaluation(self, evaluation_id: UUID, *, clinical_ls: int,
+    def finalize_evaluation(self, evaluation_id: UUID, *, clinical_ls: int | None,
                             reviewed_attempt_id: UUID, segmentation_quality: str,
                             annotator_confidence: float | None = None) -> Evaluation:
-        if type(clinical_ls) is not int or clinical_ls not in range(4):
-            raise ValueError("clinical_ls must be an integer between 0 and 3 to finalize.")
+        if clinical_ls is not None and (type(clinical_ls) is not int or clinical_ls not in range(4)):
+            raise ValueError("clinical_ls must be null or an integer between 0 and 3.")
+        if clinical_ls is None and annotator_confidence is not None:
+            raise ValueError("annotator_confidence requires clinical_ls.")
         evaluation = self._lock_draft(evaluation_id)
         if segmentation_quality not in ("adequate", "partially_adequate", "inadequate"):
             raise InvalidSegmentationReview("Invalid segmentation quality.")

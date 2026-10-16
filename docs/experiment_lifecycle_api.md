@@ -1,6 +1,6 @@
 # Experiment lifecycle in Swagger
 
-Start the configured API with PostgreSQL, Alembic migrations through `0002_segmentation_review`, local
+Start the configured API with PostgreSQL, Alembic migrations through `0003_optional_clinical_context`, local
 storage, and SAM available as described in the backend README. Open `/docs`.
 All paths below use the default `/api/v1` prefix.
 
@@ -13,7 +13,8 @@ All paths below use the default `/api/v1` prefix.
    width, height, SHA-256, and creation time, without filenames or storage paths.
 3. `POST /images/{image_id}/evaluations` with
    `{"pci_region_id": 6, "annotator_code": "MED01"}`. Copy `evaluation_id` from
-   the `201` response. Region IDs range from 0 through 12. The specialist code
+   the `201` response. Region IDs range from 0 through 12; send `pci_region_id: null`
+   when the specialist cannot determine the region. The specialist code
    is pseudonymous, nonblank, and limited to 128 characters. The evaluation
    starts as `draft`, with null LS, confidence, reviewed attempt ID, segmentation
    quality, and finalization time.
@@ -25,7 +26,8 @@ All paths below use the default `/api/v1` prefix.
    or `inadequate`. Retain the `attempt_id` of that specific reviewed result.
 5. `POST /evaluations/{evaluation_id}/finalize` with
    `{"clinical_ls": 2, "annotator_confidence": 0.9, "reviewed_attempt_id": "<attempt UUID>", "segmentation_quality": "adequate"}`.
-   LS is a required integer from 0 to 3. Confidence is optional or null, and otherwise
+   The `clinical_ls` key is required: an integer from 0 to 3, or null when undetermined.
+   Confidence must be null or omitted when LS is null. Otherwise it is optional and
    a number from 0 to 1 representing the specialist's confidence in clinical LS.
    Both review fields are required and non-null for every new API finalization.
    Quality accepts only the three exact values above; extra fields remain forbidden.
@@ -40,12 +42,17 @@ Evaluation returns `422` with `{"error":{"code":"invalid_segmentation_review","m
 The failed request leaves the draft unchanged. Existing finalized records without
 review fields remain readable with both fields null.
 
-Finalization means the specialist finished the evaluation and supplied clinical
-LS and a qualitative judgment tied to a specific segmentation attempt. That judgment
+Finalization means the specialist finished the evaluation, explicitly decided whether
+LS is determinable, and supplied a qualitative judgment tied to a specific segmentation attempt. That judgment
 is not clinical validation, LS, SAM confidence, or ground truth. No mask is accepted,
 validated, or transformed into a reference. The specialist supplies PCI region and
-LS; the workflow does not calculate the complete PCI or perform autonomous diagnosis.
+LS when determinable; neither is inferred by SAM. The workflow does not calculate the complete PCI or perform autonomous diagnosis.
 SAM `selected_score` retains only its internal quality/ranking meaning.
+
+The UI starts with no region/LS answer and requires a numeric choice or the explicit
+“Could not determine” option. Only the latter becomes null in the request. The
+persisted segmentation endpoint supports null region and returns `region: null`;
+the stateless endpoint still requires `region_id`. SAM inference is unchanged.
 
 ## Retrieve persisted resources
 

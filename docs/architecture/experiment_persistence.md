@@ -11,7 +11,7 @@ inferência ou gravação é disparada por importar os módulos. O contrato
 | --- | --- |
 | ClinicalCase | UUID, código anônimo do paciente e criação; possui várias imagens. O código não é único: um paciente pode ter casos distintos. |
 | Image | UUID, FK do caso, caminho relativo, largura/altura positivas, SHA-256 hexadecimal dos bytes originais e criação. Hash indexado, sem deduplicação automática entre casos. |
-| Evaluation | UUID, FK da imagem, região PCI 0–12, código do anotador, LS clínico manual 0–3 (opcional em draft, obrigatório em finalized), annotator_confidence opcional 0–1 (confiança no LS), reviewed_attempt_id UUID e segmentation_quality string opcionais em draft, status e timestamps. Permite avaliações independentes da mesma imagem. |
+| Evaluation | UUID, FK da imagem, região PCI 0–12 ou NULL quando não determinada, código do anotador, LS clínico manual 0–3 ou NULL (não determinado em finalized), annotator_confidence opcional 0–1 (somente com LS), reviewed_attempt_id UUID e segmentation_quality string opcionais em draft, status e timestamps. Permite avaliações independentes da mesma imagem. |
 | SegmentationAttempt | UUID, FK da avaliação, sequência positiva única nessa avaliação, prompt box/points, JSONB do prompt, caminho da máscara, JSONB dos metadados SAM e criação. |
 
 IDs são gerados pela aplicação; timestamps de criação são gerados no banco
@@ -23,12 +23,13 @@ de `multimask_output` no prompt para reprodutibilidade. Não incluir arrays de
 máscara ou logits no JSON.
 
 O repositório cria avaliações em `draft`. Finalizar grava `finalized_at` e o
-LS explicitamente informado, obrigatoriamente inteiro entre 0 e 3, além de
+LS explicitamente informado, inteiro entre 0 e 3 ou NULL quando não determinado, além de
 `reviewed_attempt_id` e `segmentation_quality`. Sob o mesmo bloqueio da avaliação,
 o repositório verifica que a tentativa existe e pertence à avaliação. Os dois campos
 são gravados na mesma transação curta, sem relação ORM circular ou nova tabela.
 A pertença é garantida pelo repositório; o UUID não introduz uma FK circular.
-Em `draft`, o LS pode ser `None`; o banco também impede finalizar sem LS válido.
+Em `draft`, o LS pode ser `None`; em `finalized`, `None` significa não determinado.
+O banco e a API rejeitam confiança preenchida sem LS.
 Tentativas adicionais e nova finalização são recusadas pelo repositório.
 Ele usa bloqueio da linha da avaliação até commit/rollback, em conjunto com
 unicidade no banco, para serializar numeração e finalização. Essas regras
@@ -38,7 +39,8 @@ JSONB deve ser substituído integralmente em atualizações, não alterado in-pl
 `finalized` registra o encerramento da avaliação; não indica automaticamente
 uma máscara validada. A tentativa revisada fica vinculada ao julgamento humano
 `adequate` / `partially_adequate` / `inadequate`, sem aceite ou transformação em
-referência/ground truth. Região PCI e LS são fornecidos pelo especialista; o fluxo
+referência/ground truth. Região PCI e LS são fornecidos pelo especialista quando
+determináveis; nenhum deles é inferido pelo SAM. O fluxo
 não calcula PCI completo. Features e exportação de dataset não estão implementadas.
 
 ## Uso da fundação
@@ -83,7 +85,7 @@ finally:
 `add_attempt()` recebe o UUID da avaliação, tipo e dados do prompt, caminho
 da máscara PNG previamente salva e metadados SAM. `list_attempts()` retorna
 as tentativas na ordem; `get_evaluation()` recupera a avaliação e suas relações.
-`finalize_evaluation()` exige e registra os campos clínicos manuais e a revisão
+`finalize_evaluation()` registra o LS manual ou NULL e exige a revisão
 qualitativa vinculada à tentativa. O repositório
 faz flush, mas somente o chamador decide a transação completa.
 
@@ -110,6 +112,11 @@ restringem qualidade às três categorias e exigem ambos os campos nulos ou ambo
 preenchidos. Avaliações antigas finalizadas sem revisão continuam válidas; somente
 novas finalizações pela API exigem a revisão. O downgrade para `0001_experiment`
 remove apenas os campos de revisão e seus checks, perdendo esses dados de revisão.
+`0003_optional_clinical_context` torna a região nullable, remove o check de LS
+obrigatório em finalized e adiciona o check de confiança somente com LS. Não faz
+backfill nem cria sentinelas. Seu downgrade restaura o contrato anterior: registros
+com região NULL ou finalizados com LS NULL precisam ser removidos explicitamente
+antes da reversão; a migration não exclui dados nem inventa valores.
 `python -m alembic downgrade base` remove essas tabelas e seus registros;
 use apenas para reversão deliberada em banco descartável. Arquivos permanecem
 no storage. Migrations não importam o modelo SAM nem exigem checkpoint/CUDA.
@@ -140,7 +147,7 @@ processo e confirmação de commit perdida continuam limitações: nessa última
 situação, o cleanup pode remover um arquivo cujo registro foi confirmado;
 é necessária reconciliação manual. Não há retries ou coordenação distribuída.
 
-A resposta traz IDs, sequência, região, metadados e PNG Base64, sem caminhos
+A resposta traz IDs, sequência, região (NULL quando não determinada), metadados e PNG Base64, sem caminhos
 locais. A avaliação permanece draft e seus campos clínicos não são alterados.
 Testes HTTP usam SAM fake; os testes PostgreSQL compartilham o fixture de
 schema isolado em `tests/app/conftest.py` e são executados pelo workflow atual.

@@ -94,6 +94,25 @@ describe('Persisted segmentation workspace', () => {
     subscription.unsubscribe();
   }
 
+  it('renders an undetermined region and preserves review of the displayed attempt', async () => {
+    await flushEvaluation({ ...evaluation, pci_region_id: null });
+    await flushImage();
+    component.prepareBox(box);
+    await submit({ ...attempt, region: null });
+    loadMask();
+    expect(element.textContent).toContain('Region undetermined');
+    expect(element.textContent).not.toContain('null');
+    component.i18n.select('pt-BR'); fixture.detectChanges();
+    expect(element.textContent).toContain('Não determinada');
+    component.quality.set('adequate');
+    const emitted = vi.fn();
+    component.clinicalAssessmentRequested.subscribe(emitted);
+    component.continueToClinicalAssessment();
+    expect(emitted).toHaveBeenCalledExactlyOnceWith({
+      reviewed_attempt_id: 'attempt-1', segmentation_quality: 'adequate',
+    });
+  });
+
   it('preserves mask DOM, bbox, reviewability and canonical quality across languages', async () => {
     await ready();
     component.prepareBox(box);

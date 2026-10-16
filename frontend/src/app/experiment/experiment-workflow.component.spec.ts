@@ -79,6 +79,30 @@ describe('Experiment setup', () => {
     http.expectOne(url).flush({ error: { code: 'unavailable', message: 'Please try again.' } }, { status: 503, statusText: 'Unavailable' });
   }
 
+  it('requires a region decision and sends null for the explicit undetermined option across languages', async () => {
+    loadRegions(); fillForm();
+    component.form.controls.regionId.setValue(null);
+    await component.submit();
+    http.expectNone('/api/v1/cases');
+    const select = element.querySelector<HTMLSelectElement>('#pci-region')!;
+    select.selectedIndex = select.options.length - 1;
+    select.dispatchEvent(new Event('change'));
+    expect(component.form.controls.regionId.value).toBe('undetermined');
+    component.i18n.select('pt-BR'); fixture.detectChanges();
+    expect(select.selectedOptions[0].textContent).toContain('Não foi possível determinar');
+    const pending = component.submit();
+    await flushCase(); await flushImage();
+    const request = http.expectOne('/api/v1/images/image-1/evaluations');
+    expect(request.request.body).toEqual({ pci_region_id: null, annotator_code: 'MED01' });
+    request.flush({ ...evaluation, pci_region_id: null }); await pending;
+    fixture.detectChanges();
+    expect(element.textContent).toContain('Não determinada');
+    expect(element.textContent).not.toContain('null');
+    component.i18n.select('en'); fixture.detectChanges();
+    expect(element.textContent).toContain('Region undetermined');
+    expect(component.evaluation()?.pci_region_id).toBeNull();
+  });
+
   it('preserves setup controls, preview and validation when switching language', () => {
     loadRegions();
     fillForm();

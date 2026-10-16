@@ -46,7 +46,7 @@ by the current clinical workflow.
 The Angular frontend and FastAPI backend support:
 
 1. Experiment Setup: enter pseudonymous case and annotator codes, choose a PCI
-   region, and upload a clinical image. The backend persists the case, image,
+   region or explicitly indicate it could not be determined, and upload a clinical image. The backend persists the case, image,
    and draft Evaluation.
 2. Segmentation Workspace: retrieve the persisted image and draw a bounding box
    around the specialist-indicated lesion.
@@ -56,13 +56,16 @@ The Angular frontend and FastAPI backend support:
    rates its visual/spatial quality as Adequate, Partially adequate, or Inadequate.
    No category is preselected; preparing a new box or rerunning clears the review.
 4. Clinical Assessment: review the selected segmentation quality, manually supply clinical LS
-   (0-3) and optional annotator confidence, and finalize the Evaluation.
+   (0-3) or explicitly indicate it could not be determined, and finalize the Evaluation.
+   Optional annotator confidence is available only when a clinical LS is supplied.
 
 The backend also accepts point prompts, but the current frontend uses bounding
-boxes. New API finalizations require manual clinical LS, `reviewed_attempt_id`,
+boxes. New API finalizations require an explicit `clinical_ls` value (0–3 or null), `reviewed_attempt_id`,
 and `segmentation_quality`. The reviewed attempt must belong to that Evaluation.
 Quality is a human qualitative judgment of SAM output, not clinical validation,
-ground truth, LS, or SAM confidence. PCI region and LS are supplied by the specialist.
+ground truth, LS, or SAM confidence. PCI region and LS are supplied by the specialist
+when determinable; neither is inferred by SAM. Null region and finalized null LS mean
+undetermined. Confidence must be null when LS is null.
 
 PostgreSQL and local storage preserve the pseudonymous ClinicalCase, exact
 original validated image bytes and their SHA-256, Evaluation, segmentation

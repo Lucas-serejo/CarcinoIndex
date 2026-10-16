@@ -20,8 +20,8 @@ from backend.app.domain.pci import get_region
 @dataclass(frozen=True, slots=True)
 class SegmentationServiceResult:
     analysis_id: UUID
-    region_id: int
-    region_name: str
+    region_id: int | None
+    region_name: str | None
     ls_score: int | None
     ls_source: str | None
     metadata: dict[str, object]
@@ -42,11 +42,11 @@ class SegmentationService:
         image: np.ndarray,
         prompt: SegmentationPrompt,
         *,
-        region_id: int,
+        region_id: int | None,
         ls_score: int | None = None,
         ls_source: str = "user",
     ) -> SegmentationServiceResult:
-        region = get_region(region_id)
+        region = get_region(region_id) if region_id is not None else None
         if ls_score is not None and (
             isinstance(ls_score, bool) or ls_score not in range(4)
         ):
@@ -69,7 +69,7 @@ class SegmentationService:
         return SegmentationServiceResult(
             analysis_id=uuid4(),
             region_id=region_id,
-            region_name=region.display_name,
+            region_name=region.display_name if region is not None else None,
             ls_score=ls_score,
             ls_source=ls_source if ls_score is not None else None,
             metadata=result.to_metadata_dict(),

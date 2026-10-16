@@ -126,7 +126,7 @@ def get_image_content(
 @router.post(
     "/images/{image_id}/evaluations", response_model=EvaluationResponse, status_code=201,
     summary="Create image evaluation",
-    description="Create a draft evaluation for one PCI region and a pseudonymous specialist. "
+    description="Create a draft evaluation with a specialist-provided PCI region (null when undetermined) and a pseudonymous specialist. "
                 "Clinical LS and confidence are accepted only at finalization.",
     responses={404: {"description": "Image not found."}},
 )
@@ -168,7 +168,7 @@ def get_evaluation(
 @router.post(
     "/evaluations/{evaluation_id}/finalize", response_model=EvaluationResponse,
     summary="Finalize evaluation",
-    description="Record clinical LS supplied manually by the specialist and finish the evaluation. "
+    description="Record clinical LS supplied manually by the specialist (null when undetermined) and finish the evaluation. "
                 "A qualitative review of a specific attempt from this evaluation is required. Finalization does not validate or select a "
                 "reference mask and does not imply autonomous diagnosis.",
     responses={404: {"description": "Evaluation not found."},

@@ -28,7 +28,7 @@ export interface ImageResponse {
 }
 
 export interface CreateEvaluationRequest {
-  pci_region_id: number;
+  pci_region_id: number | null;
   annotator_code: string;
 }
 
@@ -46,14 +46,14 @@ export interface SegmentationReview {
 }
 
 export interface FinalizeEvaluationRequest extends SegmentationReview {
-  clinical_ls: number;
+  clinical_ls: number | null;
   annotator_confidence: number | null;
 }
 
 export interface EvaluationResponse {
   evaluation_id: string;
   image_id: string;
-  pci_region_id: number;
+  pci_region_id: number | null;
   annotator_code: string;
   status: 'draft' | 'finalized';
   reviewed_attempt_id: string | null;
@@ -107,7 +107,7 @@ export interface PersistedSegmentationResponse {
   attempt_id: string;
   evaluation_id: string;
   sequence_number: number;
-  region: RegionSelectionResponse;
+  region: RegionSelectionResponse | null;
   metadata: Record<string, unknown>;
   mask: MaskResponse;
 }

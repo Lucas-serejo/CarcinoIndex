@@ -50,11 +50,11 @@ def upload(api, case_id, content=None, media_type="image/png"):
     })
 
 
-def create_evaluation(api):
+def create_evaluation(api, region_id=6):
     image = upload(api, create_case(api))
     assert image.status_code == 201, image.text
     response = api.client.post(f"/api/v1/images/{image.json()['image_id']}/evaluations",
-                               json={"pci_region_id": 6, "annotator_code": "MED01"})
+                               json={"pci_region_id": region_id, "annotator_code": "MED01"})
     assert response.status_code == 201, response.text
     return response.json()
 
@@ -231,7 +231,7 @@ def test_finalize_persists_review_and_manual_assessment(api, confidence, clinica
 
 
 @pytest.mark.parametrize("body", [
-    {}, {"clinical_ls": None},
+    {}, {"clinical_ls": None, "annotator_confidence": 0.8},
     *[{"clinical_ls": value} for value in [-1, 4, 1.5, True, "2"]],
     *[{"clinical_ls": 2, "annotator_confidence": value} for value in [-0.1, 1.1, True, "0.9"]],
 ])
@@ -357,16 +357,21 @@ def test_image_content_closes_session_before_storage_read(api, monkeypatch):
     assert response.content == encoded_image("PNG")
 
 
-def test_complete_http_lifecycle_without_cuda(api):
+@pytest.mark.parametrize("region_id", [None, *range(13)])
+@pytest.mark.parametrize("clinical_ls", [None, 2])
+def test_complete_http_lifecycle_without_cuda(api, region_id, clinical_ls):
     """All experimental records originate in HTTP requests; SAM is the only fake."""
-    evaluation = create_evaluation(api)
+    evaluation = create_evaluation(api, region_id)
+    assert evaluation["pci_region_id"] == region_id
     eid = evaluation["evaluation_id"]
     url = f"/api/v1/evaluations/{eid}/segmentations"
     response = api.client.post(url, data=BOX)
     assert response.status_code == 201, response.text
     assert response.json()["sequence_number"] == 1
+    if region_id is None:
+        assert response.json()["region"] is None
     assert api.client.post(f"/api/v1/evaluations/{eid}/finalize",
-                           json={"clinical_ls": 2, "annotator_confidence": 0.9,
+                           json={"clinical_ls": clinical_ls, "annotator_confidence": None,
                                  "reviewed_attempt_id": response.json()["attempt_id"],
                                  "segmentation_quality": "adequate"}).status_code == 200
     assert api.client.post(url, data=BOX).status_code == 409
@@ -376,7 +381,10 @@ def test_complete_http_lifecycle_without_cuda(api):
         attempts = repo.list_attempts(UUID(eid))
         assert len(attempts) == 1
         assert api.storage.read(attempts[0].mask_storage_path)
-        assert repo.get_evaluation(UUID(eid)).clinical_ls == 2
+        assert repo.get_evaluation(UUID(eid)).clinical_ls == clinical_ls
+    assert api.client.post(f"/api/v1/evaluations/{eid}/finalize",
+                           json={"clinical_ls": clinical_ls, "reviewed_attempt_id": response.json()["attempt_id"],
+                                 "segmentation_quality": "adequate"}).status_code == 409
 
 
 @pytest.mark.parametrize("field,value", [

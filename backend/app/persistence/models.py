@@ -49,7 +49,7 @@ class Evaluation(Base):
         CheckConstraint("clinical_ls BETWEEN 0 AND 3", name="ck_evaluation_ls"),
         CheckConstraint("segmentation_quality IN ('adequate', 'partially_adequate', 'inadequate')", name="ck_evaluation_segmentation_quality"),
         CheckConstraint("(reviewed_attempt_id IS NULL) = (segmentation_quality IS NULL)", name="ck_evaluation_segmentation_review_pair"),
-        CheckConstraint("status != 'finalized' OR clinical_ls IS NOT NULL", name="ck_evaluation_finalized_ls"),
+        CheckConstraint("clinical_ls IS NOT NULL OR annotator_confidence IS NULL", name="ck_evaluation_confidence_requires_ls"),
         CheckConstraint("annotator_confidence BETWEEN 0 AND 1", name="ck_evaluation_annotator_confidence"),
         CheckConstraint("length(trim(annotator_code)) > 0", name="ck_evaluation_annotator"),
         CheckConstraint("status IN ('draft', 'finalized')", name="ck_evaluation_status"),
@@ -58,7 +58,7 @@ class Evaluation(Base):
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
     image_id: Mapped[UUID] = mapped_column(ForeignKey("images.id", ondelete="RESTRICT"), index=True)
-    pci_region_id: Mapped[int] = mapped_column(Integer)
+    pci_region_id: Mapped[int | None] = mapped_column(Integer)
     annotator_code: Mapped[str] = mapped_column(String(128))
     clinical_ls: Mapped[int | None] = mapped_column(Integer)
     annotator_confidence: Mapped[float | None] = mapped_column(Float)

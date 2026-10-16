@@ -131,7 +131,7 @@ async def create_persisted_segmentation(
                 response = PersistedSegmentationResponse(
                     attempt_id=attempt.id, evaluation_id=evaluation_id,
                     sequence_number=attempt.sequence_number,
-                    region={"region_id": region_id, "region_name": result.region_name},
+                    region={"region_id": region_id, "region_name": result.region_name} if region_id is not None else None,
                     metadata=result.metadata,
                     mask={"width": result.mask_width, "height": result.mask_height,
                           "data": result.mask_png_base64},

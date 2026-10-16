@@ -53,12 +53,13 @@
             @for (region of regions(); track region.region_id) {
               <option [ngValue]="region.region_id">{{ region.region_id }} — {{ i18n.text(region.display_name) }}</option>
             }
+            <option [ngValue]="'undetermined'">{{ i18n.text("Could not determine") }}</option>
           </select>
           <p id="region-help" class="hint" role="status">
             @switch (regionState()) {
               @case ('loading') { {{ i18n.text("Loading PCI regions…") }} }
               @case ('error') { {{ i18n.error(regionError()) }} }
-              @case ('success') { {{ i18n.text("Required. Select the region indicated by the specialist.") }} }
+              @case ('success') { {{ i18n.text("Select a PCI region or explicitly indicate that it could not be determined.") }} }
             }
           </p>
           @if (regionState() === 'error') {
