@@ -130,6 +130,8 @@ must stay outside version control.
   production build, and F1-F4 behavior.
 - [Experiment lifecycle API](docs/experiment_lifecycle_api.md): create and retrieve
   resources, record segmentation attempts, and finalize an Evaluation.
+- [Experiment B CSV export](backend/README.md#exportação-do-experimento-b-csv):
+  read-only `python scripts/export_experiment_b.py`, one row per finalized Evaluation.
 - [Persistence architecture](docs/architecture/experiment_persistence.md): data
   model, transaction boundaries, and storage limitations.
 - [SAM inference contract](docs/architecture/sam2_inference_contract.md): one
