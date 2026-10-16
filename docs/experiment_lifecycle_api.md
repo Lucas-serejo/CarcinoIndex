@@ -4,10 +4,13 @@ Start the configured API with PostgreSQL, Alembic migrations through `0003_optio
 storage, and SAM available as described in the backend README. Open `/docs`.
 All paths below use the default `/api/v1` prefix.
 
-1. `POST /cases` with `{"anonymous_patient_code": "PATIENT-001"}`.
+1. `POST /cases` with `{"anonymous_patient_code": "CASE-001"}`.
    Copy `case_id` from the `201` response. Codes are pseudonymous identifiers,
    trimmed, nonblank, and limited to 128 characters. Duplicates are allowed.
    Supply no names, medical record numbers, CPF, email, or other personal data.
+   The legacy field name `anonymous_patient_code` is unchanged. In Experiment B,
+   it is a pseudonymous experimental case identifier and establishes no patient
+   identity or relationship between images. Each photograph may be a new case.
 2. `POST /cases/{case_id}/images`: select a JPEG or PNG in the multipart `image`
    field. Copy `image_id` from the `201` response. The response includes `case_id`,
    width, height, SHA-256, and creation time, without filenames or storage paths.
@@ -33,6 +36,10 @@ All paths below use the default `/api/v1` prefix.
    Quality accepts only the three exact values above; extra fields remain forbidden.
    The `200` response contains the finalized evaluation and its timestamp.
 6. Further segmentation attempts or a second finalization return `409`.
+   The frontend offers “New evaluation” after finalization. It resets only local
+   workflow state and retains the annotator code, language, and loaded regions;
+   no HTTP request occurs until the next submission. That submission starts again
+   at `POST /cases`, with a new image upload and Evaluation. Earlier records remain unchanged.
 
 All evaluation responses include `evaluation_id`, `image_id`, `pci_region_id`,
 `annotator_code`, `status`, `clinical_ls`, `annotator_confidence`, `reviewed_attempt_id`,

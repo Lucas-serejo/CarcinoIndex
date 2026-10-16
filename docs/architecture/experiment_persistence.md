@@ -9,7 +9,7 @@ inferência ou gravação é disparada por importar os módulos. O contrato
 
 | Entidade | Conteúdo e relações |
 | --- | --- |
-| ClinicalCase | UUID, código anônimo do paciente e criação; possui várias imagens. O código não é único: um paciente pode ter casos distintos. |
+| ClinicalCase | UUID, campo legado `anonymous_patient_code` e criação; suporta várias imagens. No Experimento B, o campo representa um código pseudonimizado do caso experimental, sem estabelecer identidade de paciente. Não exige unicidade. |
 | Image | UUID, FK do caso, caminho relativo, largura/altura positivas, SHA-256 hexadecimal dos bytes originais e criação. Hash indexado, sem deduplicação automática entre casos. |
 | Evaluation | UUID, FK da imagem, região PCI 0–12 ou NULL quando não determinada, código do anotador, LS clínico manual 0–3 ou NULL (não determinado em finalized), annotator_confidence opcional 0–1 (somente com LS), reviewed_attempt_id UUID e segmentation_quality string opcionais em draft, status e timestamps. Permite avaliações independentes da mesma imagem. |
 | SegmentationAttempt | UUID, FK da avaliação, sequência positiva única nessa avaliação, prompt box/points, JSONB do prompt, caminho da máscara, JSONB dos metadados SAM e criação. |
@@ -67,7 +67,7 @@ stored = storage.save(buffer.getvalue(), category="images", suffix=".png")
 try:
     with sessions.begin() as session:
         repo = ExperimentRepository(session)
-        case = repo.create_case("synthetic-patient")
+        case = repo.create_case("synthetic-case")
         image = repo.add_image(
             case_id=case.id,
             storage_path=stored.path, width=32, height=24, sha256=stored.sha256,

@@ -7,6 +7,9 @@
   <app-segmentation-workspace [evaluationId]="evaluation()!.evaluation_id" (clinicalAssessmentRequested)="enterClinicalAssessment($event)" />
 } @else if (phase() === 'clinical') {
   <app-clinical-assessment [evaluationId]="evaluation()!.evaluation_id" [segmentationReview]="segmentationReview()!" (evaluationFinalized)="evaluation.set($event)" />
+  @if (evaluation()?.status === 'finalized') {
+    <button type="button" (click)="startNewEvaluation()">{{ i18n.text("New evaluation") }}</button>
+  }
 } @else {
 <div class="workspace">
   <section aria-labelledby="setup-title">
@@ -24,11 +27,11 @@
     } @else {
       <h1 id="setup-title">{{ i18n.text("Experiment setup") }}</h1>
       <p class="intro">{{ i18n.text("Prepare an image for specialist-guided evaluation.") }}</p>
-      <p id="privacy-note" class="hint">{{ i18n.text("Use pseudonymous patient and annotator identifiers only. Do not enter names or other personal information. Choose an image without identifying labels.") }}</p>
+      <p id="privacy-note" class="hint">{{ i18n.text("Use pseudonymous experimental case and annotator identifiers only. Do not enter names, medical record numbers, or other personal identifiers. Choose an image without identifying labels. The case code does not establish that different images belong to the same patient.") }}</p>
       <form [formGroup]="form" (ngSubmit)="submit()" [attr.aria-busy]="!!stage()">
         <fieldset class="setup-group"><legend>{{ i18n.text("Pseudonymous identification") }}</legend>
         <div class="field">
-          <label for="patient-code">{{ i18n.text("Pseudonymous patient code") }}</label>
+          <label for="patient-code">{{ i18n.text("Pseudonymous case code") }}</label>
           <input id="patient-code" formControlName="patientCode" autocomplete="off" aria-describedby="privacy-note patient-help" [attr.aria-invalid]="form.controls.patientCode.touched && form.controls.patientCode.invalid" />
           <p id="patient-help" class="hint" [class.error]="form.controls.patientCode.touched && form.controls.patientCode.invalid">
             @if (clinicalCase()) { {{ i18n.text("Locked: clinical case created.") }} }

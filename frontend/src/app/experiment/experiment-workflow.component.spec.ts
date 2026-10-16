@@ -105,6 +105,8 @@ describe('Experiment setup', () => {
 
   it('preserves setup controls, preview and validation when switching language', () => {
     loadRegions();
+    expect(element.querySelector('label[for="patient-code"]')?.textContent).toBe('Pseudonymous case code');
+    expect(element.querySelector('#privacy-note')?.textContent).toContain('does not establish that different images belong to the same patient');
     fillForm();
     component.form.controls.patientCode.markAsTouched();
     const values = component.form.getRawValue();
@@ -113,6 +115,8 @@ describe('Experiment setup', () => {
     component.i18n.select('pt-BR');
     fixture.detectChanges();
     expect(element.textContent).toContain('Preparação do experimento');
+    expect(element.querySelector('label[for="patient-code"]')?.textContent).toBe('Código pseudonimizado do caso');
+    expect(element.querySelector('#privacy-note')?.textContent).toContain('não estabelece que diferentes imagens pertencem ao mesmo paciente');
     expect(element.querySelector('button[type="submit"]')?.textContent).toContain('Iniciar avaliação');
     expect(component.form.getRawValue()).toEqual(values);
     expect(component.previewUrl()).toBe(preview);
@@ -259,8 +263,13 @@ describe('Experiment setup', () => {
     await Promise.resolve();
   });
 
-  it('transitions after a displayed mask and preserves the reviewed attempt through finalization', async () => {
+  it('preserves the reviewed attempt through finalization and starts an independent next evaluation', async () => {
     loadRegions();
+    fillForm();
+    const initialSetup = component.submit();
+    await flushCase(); await flushImage();
+    http.expectOne('/api/v1/images/image-1/evaluations').flush(evaluation);
+    await initialSetup;
     component.evaluation.set(evaluation);
     component.enterSegmentation(); fixture.detectChanges();
     http.expectOne('/api/v1/evaluations/evaluation-1').flush(evaluation);
@@ -295,6 +304,9 @@ describe('Experiment setup', () => {
     expect('file' in clinical || 'mask' in clinical || 'metadata' in clinical).toBe(false);
     http.expectOne('/api/v1/evaluations/evaluation-1').flush(evaluation); fixture.detectChanges();
     expect(Array.from(element.querySelectorAll('.steps span')).map(span => span.textContent)).toEqual(['Complete', 'Complete', 'Active']);
+    expect(element.textContent).not.toContain('New evaluation');
+    component.startNewEvaluation();
+    expect(component.evaluation()).toBe(evaluation);
     clinical.form.controls.clinicalLs.setValue(2); clinical.reviewAssessment(); clinical.finalize();
     const finalized: EvaluationResponse = {
       ...evaluation, status: 'finalized', clinical_ls: 2, finalized_at: '2026-09-26T12:00:00Z',
@@ -309,6 +321,90 @@ describe('Experiment setup', () => {
     expect(element.textContent).toContain('Inadequate');
     expect(Array.from(element.querySelectorAll('.steps span')).map(span => span.textContent)).toEqual(['Complete', 'Complete', 'Complete']);
     expect(element.querySelector('[aria-current="step"]')).toBeNull();
+    expect(element.textContent).toContain('New evaluation');
+    component.i18n.select('pt-BR'); fixture.detectChanges();
+    const nextButton = Array.from(element.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Nova avaliação')!;
+    expect(nextButton).toBeDefined();
+    const previous = structuredClone(finalized);
+    const loadedRegions = component.regions();
+    component.imageError.set('Old upload error');
+    component.regionError.set('Old region error');
+    component.failure.set({ stage: 'Uploading image', message: 'Old failure' });
+    component.previewUrl.set('blob:stale-preview');
+    nextButton.click(); fixture.detectChanges();
+    expect(component.phase()).toBe('setup');
+    expect(component.form.getRawValue()).toEqual({ patientCode: '', annotatorCode: 'MED01', regionId: null, file: null });
+    expect(Object.values(component.form.controls).every(control => control.enabled && control.pristine && control.untouched)).toBe(true);
+    expect(component.form.invalid).toBe(true);
+    expect(component.clinicalCase()).toBeNull();
+    expect(component.image()).toBeNull();
+    expect(component.evaluation()).toBeNull();
+    expect(component.segmentationReview()).toBeNull();
+    expect(component.previewUrl()).toBeNull();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:stale-preview');
+    expect(component.imageError()).toBe('');
+    expect(component.regionError()).toBe('');
+    expect(component.failure()).toBeNull();
+    expect(component.stage()).toBeNull();
+    expect(component.i18n.language()).toBe('pt-BR');
+    expect(component.regions()).toBe(loadedRegions);
+    expect(component.regionState()).toBe('success');
+    expect(element.querySelector('select')?.textContent).toContain('Backend region label');
+    expect(element.querySelector('app-clinical-assessment')).toBeNull();
+    expect(element.textContent).not.toContain('Nova avaliação');
+    expect(finalized).toEqual(previous);
+    http.expectNone(() => true);
+
+    const newFile = new File(['new image'], 'new.png', { type: 'image/png' });
+    component.form.patchValue({ patientCode: 'CASE-002', regionId: 'undetermined' });
+    selectFile(newFile);
+    const nextSetup = component.submit();
+    const newCase = http.expectOne('/api/v1/cases');
+    expect(newCase.request.body).toEqual({ anonymous_patient_code: 'CASE-002' });
+    newCase.flush({ ...clinicalCase, case_id: 'case-2', anonymous_patient_code: 'CASE-002' });
+    await Promise.resolve();
+    const newUpload = http.expectOne('/api/v1/cases/case-2/images');
+    expect((newUpload.request.body as FormData).get('image')).toBe(newFile);
+    newUpload.flush({ ...image, case_id: 'case-2', image_id: 'image-2' });
+    await Promise.resolve();
+    const newEvaluation = http.expectOne('/api/v1/images/image-2/evaluations');
+    expect(newEvaluation.request.body).toEqual({ pci_region_id: null, annotator_code: 'MED01' });
+    const second = { ...evaluation, evaluation_id: 'evaluation-2', image_id: 'image-2', pci_region_id: null };
+    newEvaluation.flush(second); await nextSetup;
+    expect(component.evaluation()).toEqual(second);
+    expect(finalized).toEqual(previous);
+    component.enterSegmentation(); fixture.detectChanges();
+    http.expectOne('/api/v1/evaluations/evaluation-2').flush(second);
+    await Promise.resolve();
+    http.expectOne('/api/v1/images/image-2/content').flush(new Blob(['new image'], { type: 'image/png' }));
+    await Promise.resolve(); fixture.detectChanges();
+    const nextWorkspace = fixture.debugElement.query(By.directive(SegmentationWorkspaceComponent)).componentInstance as SegmentationWorkspaceComponent;
+    expect(nextWorkspace).not.toBe(workspace);
+    expect(nextWorkspace.box()).toBeNull();
+    expect(nextWorkspace.result()).toBeNull();
+    expect(nextWorkspace.quality()).toBeNull();
+    component.enterClinicalAssessment({ reviewed_attempt_id: 'new-attempt', segmentation_quality: 'adequate' });
+    fixture.detectChanges();
+    http.expectOne('/api/v1/evaluations/evaluation-2').flush(second); fixture.detectChanges();
+    const nextClinical = fixture.debugElement.query(By.directive(ClinicalAssessmentComponent)).componentInstance as ClinicalAssessmentComponent;
+    expect(nextClinical).not.toBe(clinical);
+    expect(nextClinical.form.getRawValue()).toEqual({ clinicalLs: null, confidencePercent: null });
+    expect(nextClinical.review()).toBeNull();
+    http.expectNone(() => true);
+  });
+
+  it('ignores new evaluation requests before clinical finalization', () => {
+    loadRegions(); fillForm();
+    const values = component.form.getRawValue();
+    expect(element.textContent).not.toContain('New evaluation');
+    component.startNewEvaluation();
+    expect(component.form.getRawValue()).toEqual(values);
+    component.evaluation.set(evaluation);
+    component.phase.set('segmentation');
+    component.startNewEvaluation();
+    expect(component.phase()).toBe('segmentation');
+    expect(component.evaluation()).toBe(evaluation);
+    http.expectNone(() => true);
   });
 
   it('retries evaluation failure without another case or upload and locks the stored image', async () => {
