@@ -39,7 +39,7 @@
                 </fieldset>
               }
               <button type="button" (click)="continueToClinicalAssessment()" [disabled]="segmenting() || !reviewable() || !quality()" aria-describedby="clinical-note">{{ i18n.text("Continue to clinical assessment") }}</button>
-              <p id="clinical-note" class="hint">{{ i18n.text("Continue to manually assign clinical LS after reviewing the result.") }}</p>
+              <p id="clinical-note" class="hint">{{ i18n.text("Continue to record the available clinical context.") }}</p>
             }
           </aside>
         </div>

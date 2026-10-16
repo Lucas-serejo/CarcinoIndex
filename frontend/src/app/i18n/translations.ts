@@ -68,7 +68,7 @@ export const ptBR: Readonly<Record<string, string>> = {
   'Clinical assessment': 'Avaliação clínica',
   'Clinical assessment finalized': 'Avaliação clínica finalizada',
   'Continue to clinical assessment': 'Continuar para avaliação clínica',
-  'Continue to manually assign clinical LS after reviewing the result.': 'Continue para informar manualmente o LS clínico após avaliar o resultado.',
+  'Continue to record the available clinical context.': 'Continue para registrar o contexto clínico disponível.',
   'Drag a bounding box around the specialist-indicated lesion. Draw again to replace it. Box drawing requires a mouse, pen, or touch.': 'Arraste para desenhar uma caixa delimitadora ao redor da lesão indicada pelo especialista. Desenhe novamente para substituí-la. O desenho requer mouse, caneta ou toque.',
   'Enter a nonblank pseudonymous code of at most 128 characters after trimming spaces.': 'Informe um código pseudonimizado não vazio com até 128 caracteres, desconsiderando espaços nas extremidades.',
   'Enter a number from 0 to 100, or leave blank.': 'Informe um número de 0 a 100 ou deixe em branco.',
