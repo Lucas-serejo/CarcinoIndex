@@ -185,3 +185,63 @@ aceita `session_factory` e `storage` juntos, além do serviço SAM fake.
 A máscara é salva antes da transação de escrita. Falhas no registro ou commit
 removem o novo PNG; arquivos anteriores permanecem intactos. Consulte as
 limitações de interrupção e commit incerto no documento de persistência.
+
+### Exportação do Experimento B (CSV)
+
+Exporta as avaliações coletadas no Experimento B para análise posterior, sem
+SQL manual. Cada linha do CSV é **uma Evaluation finalizada**; drafts são
+excluídos. Os metadados de prompt e SAM pertencem exclusivamente à tentativa
+indicada por `reviewed_attempt_id` (não à primeira, à última ou à de maior
+score); `attempt_count` informa quantas tentativas a Evaluation possui e
+`reviewed_attempt_sequence`, a sequência da tentativa revisada. A ordem é
+`finalized_at` e, em empate, `evaluation_id`.
+
+Execute na raiz do repositório, com `DATABASE_URL` exportada como descrito acima
+(SAM, CUDA e checkpoint não são necessários):
+
+```powershell
+$env:DATABASE_URL = "postgresql+psycopg://carcinoindex:SENHA@127.0.0.1:5432/carcinoindex"
+python scripts/export_experiment_b.py
+# Opcional: python scripts/export_experiment_b.py --output caminho\evaluations.csv
+```
+
+O padrão é `experiments/outputs/experiment_b/evaluations.csv` (diretórios são
+criados automaticamente). Essa pasta é ignorada pelo Git: **não versione o CSV**.
+Sem avaliações finalizadas, é gerado apenas o cabeçalho e o comando informa
+0 avaliações exportadas. O terminal mostra uma contagem de conferência
+operacional (qualidade, região PCI e LS determinados/não determinados), não
+uma análise estatística.
+
+O processo é somente leitura: usa uma transação PostgreSQL `READ ONLY`, não
+abre imagens nem máscaras, não executa o SAM e não altera registros. Se uma
+Evaluation finalizada não tiver `reviewed_attempt_id`, referenciar tentativa
+inexistente ou de outra Evaluation, ou não tiver `segmentation_quality`, a
+exportação é abortada com o `evaluation_id` problemático; nada é corrigido
+automaticamente nem omitido em silêncio (Evaluations legadas finalizadas antes
+de `0002_segmentation_review` se enquadram aqui).
+
+Colunas: `evaluation_id`, `case_id`, `case_code`, `image_id`, `image_sha256`,
+`image_width`, `image_height`, `annotator_code`, `pci_region_id`,
+`segmentation_quality`, `clinical_ls`, `annotator_confidence`,
+`reviewed_attempt_id`, `reviewed_attempt_sequence`, `attempt_count`,
+`prompt_type`, `prompt_data_json`, `model_name`, `model_config`,
+`checkpoint_name`, `selected_index`, `selected_score`, `mask_area_pixels`,
+`mask_area_ratio`, `prediction_time_seconds`, `evaluation_created_at`,
+`finalized_at`. Valores nulos (por exemplo, região ou LS não determináveis)
+ficam como células vazias; datas são ISO 8601 em UTC.
+
+Interpretação:
+
+- `case_code` vem de `ClinicalCase.anonymous_patient_code` e é o código
+  pseudonimizado do caso experimental; não representa necessariamente um
+  paciente nem estabelece identidade entre casos.
+- `selected_score` é o score técnico da máscara escolhida pelo SAM, não
+  confiança clínica. A confiança da especialista é `annotator_confidence`,
+  associada apenas ao LS.
+- `mask_area_ratio` é a proporção de pixels da máscara em relação à imagem,
+  não o tamanho físico da lesão.
+- `prompt_data_json` é o `prompt_data` persistido (bbox manual), serializado com
+  chaves ordenadas.
+
+O CSV não contém caminhos de armazenamento de imagens ou máscaras, nomes de
+arquivo, bytes de imagem, máscaras, logits nem credenciais.
