@@ -155,6 +155,23 @@ export class ExperimentWorkflowComponent {
     }
   }
 
+  startNewEvaluation(): void {
+    const evaluation = this.evaluation();
+    if (this.phase() !== 'clinical' || evaluation?.status !== 'finalized') return;
+    this.revokePreview();
+    this.form.reset({ patientCode: '', annotatorCode: evaluation.annotator_code, regionId: null, file: null });
+    this.form.enable();
+    this.clinicalCase.set(null);
+    this.image.set(null);
+    this.evaluation.set(null);
+    this.segmentationReview.set(null);
+    this.imageError.set('');
+    this.regionError.set('');
+    this.failure.set(null);
+    this.stage.set(null);
+    this.phase.set('setup');
+  }
+
   private revokePreview(): void {
     const url = this.previewUrl();
     if (url) URL.revokeObjectURL(url);
