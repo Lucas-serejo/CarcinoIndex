@@ -33,7 +33,7 @@ def attempt(repo, evaluation_id):
                             sam_metadata={"selected_score": 0.91, "model_name": "sam2.1_hiera_small"})
 
 
-@pytest.mark.parametrize("clinical_ls", [0, 1, 2, 3])
+@pytest.mark.parametrize("clinical_ls", [None, 0, 1, 2, 3])
 def test_round_trip_multiple_attempts_and_clinical_label(database, clinical_ls):
     factory = create_session_factory(database[0])
     with factory.begin() as session:
@@ -46,11 +46,11 @@ def test_round_trip_multiple_attempts_and_clinical_label(database, clinical_ls):
         reviewed = attempt(repo, eid)
         assert reviewed.sequence_number == 2
         aid = reviewed.id
-        repo.finalize_evaluation(eid, clinical_ls=clinical_ls, annotator_confidence=0.7, reviewed_attempt_id=aid, segmentation_quality="adequate")
+        repo.finalize_evaluation(eid, clinical_ls=clinical_ls, annotator_confidence=0.7 if clinical_ls is not None else None, reviewed_attempt_id=aid, segmentation_quality="adequate")
     with factory() as session:
         repo = ExperimentRepository(session)
         loaded = repo.get_evaluation(eid)
-        assert loaded.clinical_ls == clinical_ls and loaded.annotator_confidence == 0.7
+        assert loaded.clinical_ls == clinical_ls and loaded.annotator_confidence == (0.7 if clinical_ls is not None else None)
         assert loaded.reviewed_attempt_id == aid and loaded.segmentation_quality == "adequate"
         assert loaded.created_at.tzinfo and loaded.finalized_at.tzinfo
         assert loaded.image.case.anonymous_patient_code == "anonymous-001"
@@ -65,7 +65,7 @@ def test_round_trip_multiple_attempts_and_clinical_label(database, clinical_ls):
             repo.finalize_evaluation(eid, clinical_ls=1, reviewed_attempt_id=aid, segmentation_quality="adequate")
 
 
-@pytest.mark.parametrize("field,value", [("pci_region_id", -1), ("pci_region_id", 13), ("clinical_ls", 4), ("clinical_ls", -1), ("annotator_confidence", 1.1), ("annotator_confidence", -0.1), ("annotator_confidence", float("nan")), ("status", "unknown"), ("status", "finalized"), ("annotator_code", " ")])
+@pytest.mark.parametrize("field,value", [("pci_region_id", -1), ("pci_region_id", 13), ("clinical_ls", 4), ("clinical_ls", -1), ("annotator_confidence", 0.8), ("annotator_confidence", 1.1), ("annotator_confidence", -0.1), ("annotator_confidence", float("nan")), ("status", "unknown"), ("status", "finalized"), ("annotator_code", " ")])
 def test_evaluation_constraints(database, field, value):
     factory = create_session_factory(database[0])
     with factory.begin() as session:
@@ -85,7 +85,7 @@ def test_image_constraints(database, field, value):
             session.flush()
 
 
-@pytest.mark.parametrize("clinical_ls", [None, -1, 4])
+@pytest.mark.parametrize("clinical_ls", [-1, 4])
 def test_database_rejects_finalized_without_valid_ls(database, clinical_ls):
     with create_session_factory(database[0]).begin() as session:
         evaluation = seed(session)
@@ -147,6 +147,36 @@ def test_migration_matches_models_and_downgrades(database):
         assert set(inspect(connection).get_table_names()) == {"alembic_version"}
         command.upgrade(config, "head")
         assert len(inspect(connection).get_table_names()) == 5
+
+
+def test_optional_context_migration_upgrades_current_schema_and_reverses(database):
+    engine, config = database
+    with engine.begin() as connection:
+        config.attributes["connection"] = connection
+        command.downgrade(config, "0002_segmentation_review")
+        assert not next(c for c in inspect(connection).get_columns("evaluations") if c["name"] == "pci_region_id")["nullable"]
+        command.upgrade(config, "head")
+        assert next(c for c in inspect(connection).get_columns("evaluations") if c["name"] == "pci_region_id")["nullable"]
+        checks = {c["name"] for c in inspect(connection).get_check_constraints("evaluations")}
+        assert "ck_evaluation_finalized_ls" not in checks
+        assert "ck_evaluation_confidence_requires_ls" in checks
+        assert compare_metadata(MigrationContext.configure(connection), Base.metadata) == []
+        command.downgrade(config, "0002_segmentation_review")
+        checks = {c["name"] for c in inspect(connection).get_check_constraints("evaluations")}
+        assert "ck_evaluation_finalized_ls" in checks
+        assert "ck_evaluation_confidence_requires_ls" not in checks
+
+
+def test_database_rejects_confidence_on_finalized_undetermined_ls(database):
+    with create_session_factory(database[0]).begin() as session:
+        evaluation = seed(session)
+        repo = ExperimentRepository(session)
+        saved = attempt(repo, evaluation.id)
+        repo.finalize_evaluation(evaluation.id, clinical_ls=None,
+                                 reviewed_attempt_id=saved.id, segmentation_quality="adequate")
+        with pytest.raises(IntegrityError, match="ck_evaluation_confidence_requires_ls"), session.begin_nested():
+            evaluation.annotator_confidence = 0.8
+            session.flush()
 
 
 @pytest.mark.parametrize("quality,has_attempt", [

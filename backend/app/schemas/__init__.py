@@ -61,7 +61,7 @@ class PersistedSegmentationResponse(BaseModel):
     attempt_id: UUID
     evaluation_id: UUID
     sequence_number: int
-    region: RegionSelectionResponse
+    region: RegionSelectionResponse | None
     metadata: dict[str, Any]
     mask: MaskResponse
 

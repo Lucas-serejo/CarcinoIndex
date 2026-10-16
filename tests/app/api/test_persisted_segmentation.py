@@ -144,14 +144,15 @@ def test_database_failure_rolls_back_and_deletes_only_new_mask(persisted_api, fa
 
 
 @pytest.mark.parametrize("fields", [BOX, POINTS])
+@pytest.mark.parametrize("region_id", [None, 6])
 @pytest.mark.parametrize("commit_fails", [False, True])
-def test_http_storage_transaction_without_postgresql(tmp_path, fields, commit_fails):
+def test_http_storage_transaction_without_postgresql(tmp_path, fields, commit_fails, region_id):
     """Exercise HTTP + SAM fake + real filesystem even without a test database."""
     storage = LocalStorage(tmp_path)
     source = storage.save(encoded_image("PNG"), category="images", suffix=".png")
     eid = uuid4()
     session = Mock(spec=Session)
-    session.get.return_value = SimpleNamespace(status="draft", pci_region_id=6,
+    session.get.return_value = SimpleNamespace(status="draft", pci_region_id=region_id,
                                                image=SimpleNamespace(storage_path=source.path))
     session.scalar.side_effect = [SimpleNamespace(status="draft"), None]
     session.flush.side_effect = lambda: setattr(session.add.call_args.args[0], "id", uuid4())
@@ -180,7 +181,7 @@ def test_http_storage_transaction_without_postgresql(tmp_path, fields, commit_fa
         attempt = session.add.call_args.args[0]
         body = response.json()
         assert body["sequence_number"] == 1
-        assert body["region"]["region_id"] == 6
+        assert body["region"] == ({"region_id": 6, "region_name": "Pelvis"} if region_id is not None else None)
         assert attempt.prompt_data["multimask_output"] == (fields is POINTS)
         assert storage.read(attempt.mask_storage_path) == base64.b64decode(body["mask"]["data"])
     assert storage.read(source.path)

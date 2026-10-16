@@ -4,7 +4,29 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from backend.app.schemas.experiment import FinalizeEvaluationRequest
+from backend.app.schemas.experiment import CreateEvaluationRequest, FinalizeEvaluationRequest
+
+
+@pytest.mark.parametrize("region", [None, *range(13)])
+def test_region_accepts_explicit_null_or_valid_id(region):
+    assert CreateEvaluationRequest(pci_region_id=region, annotator_code="expert").pci_region_id == region
+
+
+@pytest.mark.parametrize("region", [-1, 13, True, 1.5, "2"])
+def test_region_rejects_invalid_id(region):
+    with pytest.raises(ValidationError):
+        CreateEvaluationRequest(pci_region_id=region, annotator_code="expert")
+
+
+@pytest.mark.parametrize("confidence", [None, 0, 0.8])
+def test_undetermined_ls_requires_absent_confidence(confidence):
+    body = {"clinical_ls": None, "annotator_confidence": confidence,
+            "reviewed_attempt_id": uuid4(), "segmentation_quality": "adequate"}
+    if confidence is None:
+        assert FinalizeEvaluationRequest(**body).clinical_ls is None
+    else:
+        with pytest.raises(ValidationError, match="annotator_confidence requires clinical_ls"):
+            FinalizeEvaluationRequest(**body)
 
 
 @pytest.mark.parametrize("quality", ["adequate", "partially_adequate", "inadequate"])
@@ -22,6 +44,7 @@ def test_review_contract_preserves_human_fields(quality):
 
 @pytest.mark.parametrize("field,value", [
     ("reviewed_attempt_id", "missing"), ("segmentation_quality", "missing"),
+    ("clinical_ls", "missing"),
     ("reviewed_attempt_id", None), ("segmentation_quality", None),
     ("reviewed_attempt_id", "invalid"), ("segmentation_quality", "Adequate"),
     ("segmentation_quality", "good"), ("segmentation_quality", 1),
