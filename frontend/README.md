@@ -36,7 +36,7 @@ The root App switches locally between overview and workflow without a router.
 One `ExperimentWorkflowComponent` owns the typed Reactive Form, PCI loading,
 local preview, server responses, progress, errors, and completion.
 
-Enter pseudonymous patient and annotator codes (required, trimmed, at most 128
+Enter pseudonymous experimental case and annotator codes (required, trimmed, at most 128
 characters), select a JPEG or PNG, and choose a PCI region or “Could not determine”.
 No option is preselected; the explicit undetermined choice sends `pci_region_id: null`.
 Region labels come
@@ -51,10 +51,28 @@ Submission runs Case -> Image -> Evaluation using the existing backend endpoints
 
 Successful responses stay in component memory. Retry skips completed stages:
 an upload failure reuses the case; an evaluation failure reuses both case and image.
-Patient code locks after case creation, image selection locks after upload, and
+Case code locks after case creation, image selection locks after upload, and
 region/annotator stay editable until evaluation creation. All inputs and duplicate
 submission are blocked while requests run. Completion displays safe summary information
 and an enabled Segmentation workspace action that transitions locally into F3.
+
+The visible “Pseudonymous case code” uses the unchanged API field
+`anonymous_patient_code`. In Experiment B this identifies an experimental case,
+not a patient; each photograph may be a new case, and no patient relationship is
+inferred between images. Do not enter names, medical record numbers, or other
+personal identifiers. Codes are entered manually and need not be unique.
+
+After clinical finalization, the parent displays “New evaluation”.
+`startNewEvaluation()` returns locally to Setup, preserving the finalized record's
+annotator code as an editable default, the current language, and loaded PCI regions.
+It clears case code, region selection, file/preview (revoking its object URL), current
+case/image/evaluation/review, progress and errors, and resets/enables the form.
+Leaving the clinical phase destroys its child component and its LS/confidence state.
+The earlier segmentation workspace was already destroyed on entering that phase.
+The app's model health remains outside this reset. No HTTP request, region reload,
+page reload, or browser storage is involved. Previous persisted records stay unchanged.
+The next submission creates a new ClinicalCase, uploads a new Image, and creates a
+new Evaluation; no previous resource IDs or attempt state are reused.
 
 The local preview uses an object URL, never base64. Original filenames are not
 displayed. Replacing an image revokes its previous URL. The selected File and active

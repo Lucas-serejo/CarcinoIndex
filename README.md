@@ -58,6 +58,14 @@ The Angular frontend and FastAPI backend support:
 4. Clinical Assessment: review the selected segmentation quality, manually supply clinical LS
    (0-3) or explicitly indicate it could not be determined, and finalize the Evaluation.
    Optional annotator confidence is available only when a clinical LS is supplied.
+5. New evaluation: after finalization, return to a clean Setup without reloading.
+   The annotator code remains editable and prefilled; language and loaded regions
+   are preserved. The next submission creates a new case, image, and Evaluation.
+
+In Experiment B, the visible case code identifies an experimental case, not a
+patient. Each photograph may be treated as a new case; no patient relationship is
+inferred between images. The internal API/database name `anonymous_patient_code`
+remains unchanged. Resetting the workflow does not alter previous persisted records.
 
 The backend also accepts point prompts, but the current frontend uses bounding
 boxes. New API finalizations require an explicit `clinical_ls` value (0–3 or null), `reviewed_attempt_id`,
