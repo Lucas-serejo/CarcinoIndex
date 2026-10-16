@@ -7,7 +7,7 @@ import { EvaluationResponse, FinalizeEvaluationRequest, SegmentationReview, segm
 import { ExperimentApiService } from '../../api/experiment-api.service';
 
 const clinicalLs: ValidatorFn = control =>
-  Number.isInteger(control.value) && [0, 1, 2, 3].includes(control.value as number) ? null : { clinicalLs: true };
+  control.value === 'undetermined' || (Number.isInteger(control.value) && [0, 1, 2, 3].includes(control.value as number)) ? null : { clinicalLs: true };
 const finiteConfidence: ValidatorFn = control =>
   control.value === null || (typeof control.value === 'number' && Number.isFinite(control.value)) ? null : { confidence: true };
 
@@ -35,9 +35,21 @@ export class ClinicalAssessmentComponent implements OnInit {
   readonly finalizationError = signal('');
   readonly lsChoices = [0, 1, 2, 3];
   readonly form = new FormGroup({
-    clinicalLs: new FormControl<number | null>(null, [Validators.required, clinicalLs]),
-    confidencePercent: new FormControl<number | null>(null, [finiteConfidence, Validators.min(0), Validators.max(100)]),
+    clinicalLs: new FormControl<number | 'undetermined' | null>(null, [Validators.required, clinicalLs]),
+    confidencePercent: new FormControl<number | null>({ value: null, disabled: true }, [finiteConfidence, Validators.min(0), Validators.max(100)]),
   });
+
+  constructor() {
+    this.form.controls.clinicalLs.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(value => {
+      const confidence = this.form.controls.confidencePercent;
+      if (typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 3) {
+        confidence.enable();
+      } else {
+        confidence.reset(null);
+        confidence.disable();
+      }
+    });
+  }
 
   ngOnInit(): void { this.retrieveEvaluation(); }
 
@@ -70,8 +82,8 @@ export class ClinicalAssessmentComponent implements OnInit {
     const { clinicalLs, confidencePercent } = this.form.getRawValue();
     this.review.set(Object.freeze({
       ...this.segmentationReview(),
-      clinical_ls: clinicalLs!,
-      annotator_confidence: confidencePercent === null ? null : confidencePercent / 100,
+      clinical_ls: clinicalLs === 'undetermined' ? null : clinicalLs!,
+      annotator_confidence: clinicalLs === 'undetermined' || confidencePercent === null ? null : confidencePercent / 100,
     }));
     this.finalizationError.set('');
     this.loadError.set('');
@@ -105,7 +117,7 @@ export class ClinicalAssessmentComponent implements OnInit {
     this.evaluation.set(evaluation);
     this.state.set('finalized');
     this.review.set(null);
-    this.form.disable();
+    this.form.disable({ emitEvent: false });
     this.evaluationFinalized.emit(evaluation);
   }
 }

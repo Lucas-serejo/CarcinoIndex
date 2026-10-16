@@ -1,7 +1,7 @@
 <section aria-labelledby="segmentation-title">
   <h1 id="segmentation-title">{{ i18n.text("Segmentation workspace") }}</h1>
   <p class="intro">{{ i18n.text("Indicate a lesion, then review the SAM segmentation result.") }}</p>
-  @if (evaluation(); as evaluation) { <p class="context">{{ i18n.text("PCI region") }} {{ evaluation.pci_region_id }} · {{ i18n.text(evaluation.status === 'draft' ? 'Draft evaluation' : 'Finalized evaluation') }}</p> }
+  @if (evaluation(); as evaluation) { <p class="context">{{ i18n.text("PCI region") }} {{ evaluation.pci_region_id === null ? i18n.text('Region undetermined') : evaluation.pci_region_id }} · {{ i18n.text(evaluation.status === 'draft' ? 'Draft evaluation' : 'Finalized evaluation') }}</p> }
   @switch (state()) {
     @case ('loading-evaluation') { <p role="status">{{ i18n.text("Loading persisted evaluation…") }}</p> }
     @case ('loading-image') { <p role="status">{{ i18n.text("Loading persisted image…") }}</p> }
@@ -27,7 +27,7 @@
               <div class="result" role="status">
                 <h2>{{ i18n.text("Attempt #") }}{{ attempt.sequence_number }}</h2>
                 <p>{{ i18n.text("Segmentation attempt saved. Review the segmentation result.") }}</p>
-                <p>{{ i18n.text(attempt.region.region_name) }}</p>
+                <p>{{ i18n.text(attempt.region?.region_name ?? 'Region undetermined') }}</p>
               </div>
               @if (reviewable()) {
                 <fieldset [disabled]="segmenting()" aria-describedby="quality-help">

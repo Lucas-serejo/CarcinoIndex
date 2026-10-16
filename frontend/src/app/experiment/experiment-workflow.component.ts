@@ -41,7 +41,7 @@ export class ExperimentWorkflowComponent {
   readonly form = new FormGroup({
     patientCode: new FormControl('', { nonNullable: true, validators: pseudonymousCode }),
     annotatorCode: new FormControl('', { nonNullable: true, validators: pseudonymousCode }),
-    regionId: new FormControl<number | null>(null, Validators.required),
+    regionId: new FormControl<number | 'undetermined' | null>(null, Validators.required),
     file: new FormControl<File | null>(null, Validators.required),
   });
 
@@ -89,7 +89,7 @@ export class ExperimentWorkflowComponent {
     this.form.markAllAsTouched();
     const values = this.form.getRawValue();
     if (this.form.invalid || this.regionState() !== 'success' || !values.file || values.regionId === null ||
-        !this.regions().some(region => region.region_id === values.regionId)) return;
+        (values.regionId !== 'undetermined' && !this.regions().some(region => region.region_id === values.regionId))) return;
     this.failure.set(null);
     this.form.disable();
     let stage: Stage = 'Creating clinical case';
@@ -116,7 +116,7 @@ export class ExperimentWorkflowComponent {
       stage = 'Creating evaluation';
       this.stage.set(stage);
       const evaluation = await firstValueFrom(this.api.createEvaluation(image.image_id, {
-        pci_region_id: values.regionId, annotator_code: values.annotatorCode.trim(),
+        pci_region_id: values.regionId === 'undetermined' ? null : values.regionId, annotator_code: values.annotatorCode.trim(),
       }).pipe(takeUntilDestroyed(this.destroyRef)));
       if (this.destroyRef.destroyed) return;
       this.evaluation.set(evaluation);
@@ -136,7 +136,8 @@ export class ExperimentWorkflowComponent {
     }
   }
 
-  regionName(id: number): string {
+  regionName(id: number | null): string {
+    if (id === null) return 'Region undetermined';
     return this.regions().find(region => region.region_id === id)?.display_name ?? '';
   }
 

@@ -74,12 +74,12 @@ describe('Clinical assessment', () => {
     expect(element.textContent).toContain('73.5%');
   });
 
-  it('retrieves persisted context and starts with exactly four unselected, labelled LS radios', () => {
+  it('retrieves persisted context and starts with five unselected, labelled LS radios', () => {
     expect(element.textContent).toContain('Loading persisted evaluation');
     load();
     const radios = Array.from(element.querySelectorAll<HTMLInputElement>('fieldset input[type="radio"]'));
-    expect(radios).toHaveLength(4);
-    expect(radios.map(radio => radio.closest('label')?.textContent?.trim())).toEqual(['LS 0', 'LS 1', 'LS 2', 'LS 3']);
+    expect(radios).toHaveLength(5);
+    expect(radios.map(radio => radio.closest('label')?.textContent?.trim())).toEqual(['LS 0', 'LS 1', 'LS 2', 'LS 3', 'Could not determine']);
     expect(radios.every(radio => !radio.checked)).toBe(true);
     expect(component.form.getRawValue()).toEqual({ clinicalLs: null, confidencePercent: null });
     expect(element.querySelector('legend')?.textContent).toContain('Clinical LS');
@@ -101,6 +101,48 @@ describe('Clinical assessment', () => {
     button('Review assessment').click();
     expect(component.review()?.clinical_ls).toBe(0);
     http.expectNone(`${url}/finalize`);
+  });
+
+  it('clears confidence without LS and finalizes an explicit undetermined choice across languages', () => {
+    load({ ...draft, pci_region_id: null });
+    expect(element.querySelector<HTMLInputElement>('#confidence')!.disabled).toBe(true);
+    component.form.setValue({ clinicalLs: 2, confidencePercent: 80 });
+    element.querySelectorAll<HTMLInputElement>('input[type="radio"]')[4].click();
+    fixture.detectChanges();
+    expect(component.form.controls.clinicalLs.value).toBe('undetermined');
+    expect(component.form.controls.confidencePercent.value).toBeNull();
+    expect(element.querySelector<HTMLInputElement>('#confidence')!.disabled).toBe(true);
+    component.i18n.select('pt-BR');
+    component.reviewAssessment(); fixture.detectChanges();
+    expect(element.textContent).toContain('Não determinada');
+    expect(element.textContent).toContain('Não determinado');
+    expect(element.textContent).toContain('Não informada');
+    expect(element.textContent).not.toContain('null');
+    component.i18n.select('en');
+    component.finalize();
+    const request = http.expectOne(`${url}/finalize`);
+    expect(request.request.body).toEqual({ clinical_ls: null, annotator_confidence: null,
+      reviewed_attempt_id: 'attempt-1', segmentation_quality: 'partially_adequate' });
+    request.flush({ ...finalized, pci_region_id: null, clinical_ls: null, annotator_confidence: null });
+    fixture.detectChanges();
+    expect(element.textContent).toContain('Region undetermined');
+    expect(element.textContent).toContain('LS undetermined');
+    expect(element.textContent).toContain('Not provided');
+    expect(element.textContent).not.toContain('null');
+    expect(element.querySelector('input, button')).toBeNull();
+  });
+
+  it('enables blank confidence again when a numeric LS is selected', () => {
+    load();
+    component.form.setValue({ clinicalLs: 1, confidencePercent: 80 });
+    component.form.controls.clinicalLs.setValue('undetermined');
+    component.form.controls.clinicalLs.setValue(0);
+    expect(component.form.controls.confidencePercent.enabled).toBe(true);
+    expect(component.form.controls.confidencePercent.value).toBeNull();
+    component.form.controls.confidencePercent.setValue(50);
+    component.reviewAssessment();
+    expect(component.review()?.clinical_ls).toBe(0);
+    expect(component.review()?.annotator_confidence).toBe(.5);
   });
 
   it.each([-1, 4, 1.5, NaN])('rejects invalid LS %s', value => {
@@ -141,6 +183,7 @@ describe('Clinical assessment', () => {
 
   it('maps a cleared native confidence input to null', () => {
     load();
+    component.form.controls.clinicalLs.setValue(1);
     const input = element.querySelector<HTMLInputElement>('#confidence')!;
     input.value = '73'; input.dispatchEvent(new Event('input'));
     expect(component.form.controls.confidencePercent.value).toBe(73);
@@ -188,7 +231,7 @@ describe('Clinical assessment', () => {
     expect(element.textContent).not.toContain('Partially adequate');
     expect(element.textContent).not.toContain('persisted-attempt');
     expect(element.querySelector('input, button')).toBeNull();
-    expect(element.textContent).toContain('clinical LS was supplied by the specialist');
+    expect(element.textContent).toContain('neither is inferred by SAM');
     expect(element.textContent).toContain('does not accept, validate, or select a segmentation mask');
     expect(element.textContent).toContain('does not represent a complete 13-region PCI score');
     component.finalize(); http.expectNone(`${url}/finalize`);

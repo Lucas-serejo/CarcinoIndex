@@ -1,6 +1,6 @@
 <section aria-labelledby="clinical-title" [attr.aria-busy]="state() === 'loading' || state() === 'finalizing'">
   <h1 id="clinical-title">{{ i18n.text("Clinical assessment") }}</h1>
-  <p class="intro">{{ i18n.text("Select the clinical LS assigned by the specialist using the study protocol.") }}</p>
+  <p class="intro">{{ i18n.text("Select the clinical LS assigned by the specialist, or indicate that it could not be determined.") }}</p>
   <p class="hint">{{ i18n.text("CarcinoIndex does not infer LS from the segmentation.") }}</p>
   @if (loadError()) { <p role="alert" class="error">{{ i18n.text("Evaluation retrieval failed.") }} {{ i18n.error(loadError()) }}</p> }
   @if (state() === 'loading') { <p role="status">{{ i18n.text("Loading persisted evaluation...") }}</p> }
@@ -15,12 +15,13 @@
           </section>
           <form [formGroup]="form" (ngSubmit)="reviewAssessment()">
             <fieldset aria-describedby="ls-help" [attr.aria-invalid]="form.controls.clinicalLs.touched && form.controls.clinicalLs.invalid">
-              <legend>{{ i18n.text("Clinical LS (required)") }}</legend>
+              <legend>{{ i18n.text("Clinical LS") }}</legend>
               @for (ls of lsChoices; track ls) {
                 <label class="ls-choice"><input type="radio" formControlName="clinicalLs" [value]="ls" aria-describedby="ls-help" /> LS {{ ls }}</label>
               }
+              <label class="ls-choice"><input type="radio" formControlName="clinicalLs" value="undetermined" aria-describedby="ls-help" /> {{ i18n.text("Could not determine") }}</label>
               <p id="ls-help" class="hint" [class.error]="form.controls.clinicalLs.touched && form.controls.clinicalLs.invalid">
-                @if (form.controls.clinicalLs.touched && form.controls.clinicalLs.invalid) { {{ i18n.text("Select a clinical LS from 0 to 3.") }} }
+                @if (form.controls.clinicalLs.touched && form.controls.clinicalLs.invalid) { {{ i18n.text("Select a clinical LS from 0 to 3 or indicate that it could not be determined.") }} }
                 @else { {{ i18n.text("No LS is selected automatically.") }} }
               </p>
             </fieldset>
@@ -40,10 +41,10 @@
           @if (review(); as snapshot) {
             <h2>{{ i18n.text("Review assessment") }}</h2>
             <dl>
-              <dt>{{ i18n.text("PCI region") }}</dt><dd>{{ record.pci_region_id }}</dd>
+              <dt>{{ i18n.text("PCI region") }}</dt><dd>{{ record.pci_region_id === null ? i18n.text('Region undetermined') : record.pci_region_id }}</dd>
               <dt>{{ i18n.text("Segmentation quality") }}</dt><dd>{{ i18n.text(qualityLabels[snapshot.segmentation_quality]) }}</dd>
-              <dt>{{ i18n.text("Clinical LS") }}</dt><dd>LS {{ snapshot.clinical_ls }}</dd>
-              <dt>{{ i18n.text("Annotator confidence") }}</dt><dd>{{ i18n.text(snapshot.annotator_confidence === null ? 'Not provided' : (snapshot.annotator_confidence | percent:'1.0-12':i18n.language())) }}</dd>
+              <dt>{{ i18n.text("Clinical LS") }}</dt><dd>{{ snapshot.clinical_ls === null ? i18n.text('LS undetermined') : 'LS ' + snapshot.clinical_ls }}</dd>
+              <dt>{{ i18n.text("Annotator confidence") }}</dt><dd>{{ i18n.text(snapshot.clinical_ls === null || snapshot.annotator_confidence === null ? 'Not provided' : (snapshot.annotator_confidence | percent:'1.0-12':i18n.language())) }}</dd>
             </dl>
             <p>{{ i18n.text("Finalization is irreversible in the current prototype. Review these values before finalizing.") }}</p>
             @if (finalizationError()) {
@@ -62,25 +63,25 @@
         @if (state() === 'finalized') {
           <h2 role="status">{{ i18n.text("Clinical assessment finalized") }}</h2>
           <dl>
-            <dt>{{ i18n.text("PCI region") }}</dt><dd>{{ record.pci_region_id }}</dd>
+            <dt>{{ i18n.text("PCI region") }}</dt><dd>{{ record.pci_region_id === null ? i18n.text('Region undetermined') : record.pci_region_id }}</dd>
             <dt>{{ i18n.text("Segmentation quality") }}</dt><dd>{{ i18n.text(record.segmentation_quality ? qualityLabels[record.segmentation_quality] : 'Not recorded') }}</dd>
-            <dt>{{ i18n.text("Clinical LS") }}</dt><dd>LS {{ record.clinical_ls }}</dd>
-            <dt>{{ i18n.text("Annotator confidence") }}</dt><dd>{{ i18n.text(record.annotator_confidence === null ? 'Not provided' : (record.annotator_confidence | percent:'1.0-12':i18n.language())) }}</dd>
+            <dt>{{ i18n.text("Clinical LS") }}</dt><dd>{{ record.clinical_ls === null ? i18n.text('LS undetermined') : 'LS ' + record.clinical_ls }}</dd>
+            <dt>{{ i18n.text("Annotator confidence") }}</dt><dd>{{ i18n.text(record.clinical_ls === null || record.annotator_confidence === null ? 'Not provided' : (record.annotator_confidence | percent:'1.0-12':i18n.language())) }}</dd>
             <dt>{{ i18n.text("Status") }}</dt><dd>{{ i18n.text("Finalized") }}</dd>
           </dl>
-          <p>{{ i18n.text("The clinical LS was supplied by the specialist.") }}</p>
+          <p>{{ i18n.text("PCI region and clinical LS are supplied by the specialist when determinable; neither is inferred by SAM.") }}</p>
           <p>{{ i18n.text("Finalization is irreversible in the current prototype. This assessment is read-only.") }}</p>
         }
       </div>
       <aside aria-labelledby="context-title">
         <h2 id="context-title">{{ i18n.text("Assessment context") }}</h2>
         <dl>
-          <dt>{{ i18n.text("PCI region") }}</dt><dd>{{ record.pci_region_id }}</dd>
+          <dt>{{ i18n.text("PCI region") }}</dt><dd>{{ record.pci_region_id === null ? i18n.text('Region undetermined') : record.pci_region_id }}</dd>
           <dt>{{ i18n.text("Status") }}</dt><dd>{{ i18n.text(record.status === 'finalized' ? 'Finalized' : 'Draft') }}</dd>
         </dl>
         <p>{{ i18n.text("Segmentation quality is a human qualitative judgment of the SAM output.") }}</p>
         <p>{{ i18n.text("Finalizing this Evaluation does not accept, validate, or select a segmentation mask as a reference or ground truth.") }}</p>
-        <p>{{ i18n.text("This finalizes the selected regional Evaluation; it does not represent a complete 13-region PCI score.") }}</p>
+        <p>{{ i18n.text("This finalizes the selected Evaluation; it does not represent a complete 13-region PCI score.") }}</p>
       </aside>
     </div>
   }
