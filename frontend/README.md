@@ -37,7 +37,9 @@ One `ExperimentWorkflowComponent` owns the typed Reactive Form, PCI loading,
 local preview, server responses, progress, errors, and completion.
 
 Enter pseudonymous patient and annotator codes (required, trimmed, at most 128
-characters), select a JPEG or PNG, and choose a PCI region. Region labels come
+characters), select a JPEG or PNG, and choose a PCI region or “Could not determine”.
+No option is preselected; the explicit undetermined choice sends `pci_region_id: null`.
+Region labels come
 from `GET /api/v1/pci/regions`; failed or empty responses offer retry and block
 submission. The backend remains authoritative for image format, byte and dimension limits.
 
@@ -134,12 +136,17 @@ source of truth for status and PCI region ID; the setup response is not used as 
 clinical record. An already finalized Evaluation immediately renders a read-only
 summary and emits the persisted response to the parent without posting again.
 
-For a draft, a typed Reactive Form offers exactly four native radio choices, LS 0
-through LS 3, with no default. Clinical LS is manually supplied by the specialist
+For a draft, a typed Reactive Form offers five native radio choices, LS 0
+through LS 3 and “Could not determine”, with no default. An explicit choice is required.
+The undetermined choice sends `clinical_ls: null` and `annotator_confidence: null`.
+Clinical LS and PCI region are manually supplied by the specialist when determinable;
+neither is inferred by SAM. Clinical LS is assigned
 using the study protocol. No lesion-size threshold descriptions are embedded yet.
 No mask area, bounding-box geometry, or SAM metadata is used to infer LS.
 
-Annotator confidence is optional and starts blank. The numeric input accepts 0–100%.
+Annotator confidence is optional and starts blank and disabled until LS 0–3 is selected.
+Clearing LS or selecting undetermined clears and disables confidence; selecting LS again
+enables the blank input. The numeric input accepts 0–100%.
 At review, the percentage is divided by 100 for the backend's 0–1 contract (73% becomes
 0.73, 0% becomes 0, and 100% becomes 1); blank becomes `null`. This is the specialist's
 confidence in the clinical LS assessment, not a SAM score or segmentation quality.
@@ -163,9 +170,11 @@ preserve the snapshot. There is no automatic retry, polling, or frontend idempot
 
 The final summary displays persisted segmentation quality (Not recorded for legacy
 records), LS, confidence percentage or Not provided,
-region ID, and Finalized status without editable controls. Both successful finalization
+region ID, and Finalized status without editable controls. Undetermined region/LS
+use translated labels rather than raw null; confidence without LS shows Not provided.
+Both successful finalization
 and loading an already finalized record emit the persisted Evaluation to the parent,
-which marks the clinical step Complete. Only this regional Evaluation is finalized:
+which marks the clinical step Complete. Only this Evaluation is finalized:
 the qualitative review does not accept or validate a mask as a reference or ground truth and
 does not mean a complete 13-region PCI score. Complete PCI composition remains out of scope.
 

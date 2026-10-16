@@ -3,13 +3,14 @@
 Experimental API for specialist-guided SAM 2.1 Hiera Small segmentation and manual
 PCI composition. SAM produces a mask from box or point prompts; it does not
 classify lesions. Clinical LS is always supplied by the specialist.
-It is optional in the stateless API and draft Evaluations, and required when
-finalizing an Evaluation. New finalizations require `reviewed_attempt_id` and
+It may be null in Evaluations, including finalized ones when undetermined.
+PCI region may also be null when undetermined; neither field is inferred by SAM.
+New finalizations require `reviewed_attempt_id` and
 `segmentation_quality` (`adequate`, `partially_adequate`, or `inadequate`) alongside
-manual `clinical_ls` and optional confidence in LS. The repository verifies attempt
+explicit `clinical_ls` (0–3 or null) and optional confidence in LS (null if LS is null). The repository verifies attempt
 ownership; missing or foreign attempts return safe HTTP 422 errors. Evaluation
 responses include both review fields. Apply `python -m alembic upgrade head` for
-`0002_segmentation_review`; legacy finalized rows retain null review fields.
+`0003_optional_clinical_context`; legacy finalized rows retain null review fields.
 The specialist supplies PCI region, LS, and the qualitative review of SAM output.
 This does not accept or validate a mask as ground truth or calculate complete PCI.
 
