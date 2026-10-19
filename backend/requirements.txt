@@ -4,8 +4,6 @@ opencv-python
 numpy
 matplotlib
 jupyter
-scikit-learn
-xgboost
 pandas
 fastapi
 uvicorn

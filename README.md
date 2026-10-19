@@ -36,10 +36,9 @@ categories are `adequate`, `partially_adequate`, and `inadequate`; the broader s
 protocol remains pending validation. Manual mask correction or reference-mask creation is
 not required by the minimum current TCC protocol.
 
-Feature extraction, including existing helpers and notebooks, and feature-versus-LS
-modelling remain exploratory/future work, outside the required current TCC
-delivery. No classifier is implemented, and no features are computed or persisted
-by the current clinical workflow.
+Automatic feature-based LS modelling is outside the current TCC scope and is not
+implemented. No classifier exists, and no features are computed or persisted by
+the current clinical workflow.
 
 ## Implemented MVP v1 workflow (F1-F4)
 
@@ -105,10 +104,10 @@ specialist's browser coordinates and the pixels supplied to SAM. See the
 ## Repository layout
 
 ```text
-backend/       FastAPI, SAM wrapper, experimental feature helpers, persistence
+backend/       FastAPI, SAM wrapper, persistence
 frontend/      Angular Experiment Setup, Segmentation, and Clinical Assessment
 docs/          API lifecycle, architecture, and research methodology
-notebooks/     Synthetic SAM checks and exploratory research notes
+notebooks/     Synthetic SAM wrapper validation
 scripts/       Local development and SAM feasibility tools
 tests/         CPU-compatible tests and opt-in PostgreSQL/CUDA integration tests
 datasets/      Research data organization; clinical images are not versioned

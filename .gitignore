@@ -41,7 +41,6 @@ datasets/raw/*
 datasets/processed/*
 !datasets/processed/.gitkeep
 datasets/masks/*
-!datasets/masks/.gitkeep
 datasets/samples/*
 !datasets/samples/.gitkeep
 
@@ -49,7 +48,6 @@ datasets/samples/*
 experiments/checkpoints/*
 !experiments/checkpoints/.gitkeep
 experiments/models/*
-!experiments/models/.gitkeep
 experiments/outputs/*
 !experiments/outputs/.gitkeep
 experiments/logs/*
