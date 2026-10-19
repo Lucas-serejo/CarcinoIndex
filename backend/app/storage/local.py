@@ -6,6 +6,13 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from uuid import uuid4
 
+MANAGED_KEY = re.compile(r"(?:images|masks)/[0-9a-f]{32}\.(?:png|jpg|jpeg)")
+
+
+def is_managed_key(key: str) -> bool:
+    """True only for keys created by LocalStorage.save()."""
+    return MANAGED_KEY.fullmatch(key) is not None
+
 
 @dataclass(frozen=True)
 class StoredFile:
@@ -18,7 +25,7 @@ class LocalStorage:
         self.root = root.expanduser().resolve()
 
     def _resolve(self, key: str) -> Path:
-        if not re.fullmatch(r"(?:images|masks)/[0-9a-f]{32}\.(?:png|jpg|jpeg)", key):
+        if not is_managed_key(key):
             raise ValueError("Invalid storage key.")
         path = self.root.joinpath(*PurePosixPath(key).parts).resolve()
         if not path.is_relative_to(self.root):

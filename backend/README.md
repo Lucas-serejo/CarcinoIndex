@@ -245,3 +245,52 @@ Interpretação:
 
 O CSV não contém caminhos de armazenamento de imagens ou máscaras, nomes de
 arquivo, bytes de imagem, máscaras, logits nem credenciais.
+
+### Reset dos dados experimentais locais
+
+Limpa **todos** os dados experimentais de desenvolvimento antes de uma nova
+rodada de testes ou do início do Experimento B. Destina-se somente ao ambiente
+local/de desenvolvimento. Execute na raiz do repositório, com as mesmas
+`DATABASE_URL` e `STORAGE_ROOT` usadas pelo backend (SAM e CUDA não são
+necessários).
+
+Sem argumentos, o comando é um **dry-run**: mostra as contagens do banco e dos
+arquivos gerenciados e não altera nada.
+
+```powershell
+python scripts/reset_experiment_data.py
+```
+
+Para executar de fato, **pare o backend** (Ctrl+C no `dev.ps1`) e confirme com o
+nome exato do banco da `DATABASE_URL`, mostrado no dry-run:
+
+```powershell
+python scripts/reset_experiment_data.py --execute --confirm carcinoindex
+```
+
+O comando aborta, sem alterar nada, se `--confirm` não coincidir ou se houver
+qualquer resposta em `http://127.0.0.1:8000/health`. Só uma conexão recusada
+(nenhum processo ouvindo) libera a execução; não há opção para ignorar essa
+proteção.
+
+O que é apagado:
+
+- linhas de `segmentation_attempts`, `evaluations`, `images` e `clinical_cases`,
+  com um único `TRUNCATE` (sem `CASCADE`) numa transação;
+- somente depois de o banco ser confirmado vazio, os arquivos em
+  `STORAGE_ROOT/images/` e `STORAGE_ROOT/masks/` cujo nome segue o contrato do
+  `LocalStorage` (`<32 hex>.png|jpg|jpeg`).
+
+O que é preservado: schema, `alembic_version` e migrations; qualquer outro
+arquivo do storage (nomes fora do contrato, subpastas, arquivos fora de
+`images/` e `masks/`); symlinks, que nunca são seguidos; `experiments/outputs`
+e os dados do Experimento A. Se o `TRUNCATE` falhar, há rollback e o storage
+não é tocado. Se algum arquivo gerenciado não puder ser apagado (por exemplo,
+bloqueado pelo OneDrive), o comando retorna erro informando que restaram
+arquivos órfãos; corrija a causa e execute de novo. Com tudo vazio, o comando
+termina com sucesso e mantém os zeros.
+
+**Não há backup automático.** Se algum dado precisar ser preservado, faça o
+backup antes, por exemplo com `python scripts/export_experiment_b.py`, um
+`pg_dump` do banco e uma cópia de `STORAGE_ROOT/images` e `STORAGE_ROOT/masks`
+para fora do repositório.
