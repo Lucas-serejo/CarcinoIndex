@@ -132,6 +132,8 @@ must stay outside version control.
   resources, record segmentation attempts, and finalize an Evaluation.
 - [Experiment B CSV export](backend/README.md#exportação-do-experimento-b-csv):
   read-only `python scripts/export_experiment_b.py`, one row per finalized Evaluation.
+- [Local experiment data reset](backend/README.md#reset-dos-dados-experimentais-locais):
+  dry-run by default; `--execute --confirm <database>` clears experiment tables and managed storage.
 - [Persistence architecture](docs/architecture/experiment_persistence.md): data
   model, transaction boundaries, and storage limitations.
 - [SAM inference contract](docs/architecture/sam2_inference_contract.md): one
