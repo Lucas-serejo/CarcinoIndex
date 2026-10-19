@@ -116,8 +116,11 @@ python -m alembic upgrade head
 ```
 
 Use na URL a mesma senha configurada no `.env` (com escape URL quando
-necessário). Compose lê `.env`; Python/Alembic leem variáveis exportadas,
-sem carregar `.env` automaticamente. O banco não é criado nem migrado pelo
+necessário). Compose lê `.env`; backend e Alembic leem somente variáveis
+exportadas, sem carregar `.env` automaticamente (o `dev.ps1` as carrega do
+`.env`). Os scripts locais `export_experiment_b.py` e `reset_experiment_data.py`
+carregam o `.env` da raiz por conta própria; veja [Configuração dos scripts
+locais](#configuração-dos-scripts-locais). O banco não é criado nem migrado pelo
 startup da API. `STORAGE_ROOT` relativo é resolvido a partir do diretório de
 execução; prefira caminho absoluto. A pasta padrão `storage/` é ignorada pelo
 Git; qualquer pasta alternativa dentro do repositório também deve ser ignorada.
@@ -186,6 +189,26 @@ A máscara é salva antes da transação de escrita. Falhas no registro ou commi
 removem o novo PNG; arquivos anteriores permanecem intactos. Consulte as
 limitações de interrupção e commit incerto no documento de persistência.
 
+### Configuração dos scripts locais
+
+`scripts/export_experiment_b.py` e `scripts/reset_experiment_data.py` tentam
+carregar o `.env` da raiz do repositório antes de ler a configuração. Variáveis
+já definidas no processo têm prioridade sobre o `.env`; sem `.env`, os scripts
+usam apenas o ambiente atual (útil em CI). Para usar outro banco numa execução,
+basta exportar a variável no terminal:
+
+```powershell
+$env:DATABASE_URL = "postgresql+psycopg://usuario:senha@127.0.0.1:5432/outro_banco"
+python scripts/reset_experiment_data.py
+```
+
+O formato aceito é o do `.env.example`: `NOME=valor`, linhas vazias, comentários
+iniciados por `#` e aspas externas opcionais, sem expansão de variáveis nem
+comentários ao fim da linha. Uma linha inválida interrompe o script sem exibir
+seu conteúdo. Valores do `.env` nunca são impressos. O `.env` continua ignorado
+pelo Git; não versione credenciais. Backend e Alembic não carregam o `.env`
+sozinhos.
+
 ### Exportação do Experimento B (CSV)
 
 Exporta as avaliações coletadas no Experimento B para análise posterior, sem
@@ -196,11 +219,12 @@ score); `attempt_count` informa quantas tentativas a Evaluation possui e
 `reviewed_attempt_sequence`, a sequência da tentativa revisada. A ordem é
 `finalized_at` e, em empate, `evaluation_id`.
 
-Execute na raiz do repositório, com `DATABASE_URL` exportada como descrito acima
-(SAM, CUDA e checkpoint não são necessários):
+Execute na raiz do repositório. A configuração vem do `.env` local ou de
+variáveis já exportadas, como descrito em [Configuração dos scripts
+locais](#configuração-dos-scripts-locais) (SAM, CUDA e checkpoint não são
+necessários):
 
 ```powershell
-$env:DATABASE_URL = "postgresql+psycopg://carcinoindex:SENHA@127.0.0.1:5432/carcinoindex"
 python scripts/export_experiment_b.py
 # Opcional: python scripts/export_experiment_b.py --output caminho\evaluations.csv
 ```
@@ -250,9 +274,10 @@ arquivo, bytes de imagem, máscaras, logits nem credenciais.
 
 Limpa **todos** os dados experimentais de desenvolvimento antes de uma nova
 rodada de testes ou do início do Experimento B. Destina-se somente ao ambiente
-local/de desenvolvimento. Execute na raiz do repositório, com as mesmas
-`DATABASE_URL` e `STORAGE_ROOT` usadas pelo backend (SAM e CUDA não são
-necessários).
+local/de desenvolvimento. Execute na raiz do repositório; `DATABASE_URL` e
+`STORAGE_ROOT` vêm do `.env` local ou do ambiente, como descrito em
+[Configuração dos scripts locais](#configuração-dos-scripts-locais) (SAM e CUDA
+não são necessários).
 
 Sem argumentos, o comando é um **dry-run**: mostra as contagens do banco e dos
 arquivos gerenciados e não altera nada.

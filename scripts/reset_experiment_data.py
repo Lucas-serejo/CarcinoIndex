@@ -10,17 +10,22 @@ import os
 import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+SCRIPTS_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = SCRIPTS_DIR.parent
+for _path in (SCRIPTS_DIR, PROJECT_ROOT):
+    if str(_path) not in sys.path:
+        sys.path.insert(0, str(_path))
 
 from sqlalchemy.engine import make_url  # noqa: E402
 from sqlalchemy.exc import SQLAlchemyError  # noqa: E402
 
+from _local_env import load_local_env  # noqa: E402
 from backend.app.persistence.database import PersistenceSettings, create_database_engine  # noqa: E402
 from backend.app.persistence.experiment_reset import (  # noqa: E402
     OrphanedFiles, ResetAborted, format_report, format_snapshot, reset_experiment_data, snapshot,
 )
+
+ENV_FILE = PROJECT_ROOT / ".env"
 
 
 def _display(path: Path) -> str:
@@ -34,9 +39,10 @@ def main(argv=None) -> int:
     parser.add_argument("--confirm", metavar="DATABASE", help="Exact database name from DATABASE_URL.")
     args = parser.parse_args(argv)
     try:
+        load_local_env(ENV_FILE)  # Process variables win over .env values.
         settings = PersistenceSettings.from_env()
         engine = create_database_engine(settings)
-    except ValueError as exc:
+    except (ValueError, OSError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
     database_name = make_url(settings.database_url).database or ""

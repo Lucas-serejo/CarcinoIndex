@@ -68,6 +68,7 @@ def load_script():
     spec = importlib.util.spec_from_file_location("reset_experiment_data", SCRIPT)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    module.ENV_FILE = SCRIPT.with_name("no-such.env")  # Never read the developer's .env.
     return module
 
 
