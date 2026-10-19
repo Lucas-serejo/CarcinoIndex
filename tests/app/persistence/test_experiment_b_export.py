@@ -179,6 +179,7 @@ def test_script_runs_without_finalized_evaluations(database, tmp_path, monkeypat
     spec = importlib.util.spec_from_file_location("export_experiment_b", SCRIPT)
     script = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(script)
+    monkeypatch.setattr(script, "ENV_FILE", tmp_path / "missing.env")  # Never read the developer's .env.
     monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://unused@127.0.0.1/unused")
     monkeypatch.setattr(script, "create_database_engine", lambda settings: database[0])
     output = tmp_path / "out" / "evaluations.csv"
