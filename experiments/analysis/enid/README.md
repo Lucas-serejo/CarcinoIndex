@@ -169,6 +169,45 @@ selection reason and rank are available for later inspection.
 The candidate list supports the separate qualitative renderer below; no cases
 are labelled clinically good or bad.
 
+## Filled-bbox baseline and cluster-bootstrap CIs
+
+A separate CPU-only command measures how much SAM adds beyond its own prompt.
+The oracle XYWH bbox is rasterized as the rectangle polygon
+`[x,y, x+w,y, x+w,y+h, x,y+h]` with the same pycocotools convention as the
+reference (`frPyObjects -> merge -> decode`) and compared with the canonical
+reference mask using the existing `overlap_metrics()`. SAM Dice/IoU are read
+from `results.csv`, never recomputed. Every results row must match a canonical
+annotation (`load_samples`) in identity, bbox and reference area, or the run
+aborts before writing.
+
+```powershell
+.venv/Scripts/python.exe scripts/analyze_enid_box_baseline.py `
+  --dataset-root datasets/raw/enid/ENID_v1.0_dataset `
+  --split-root datasets/raw/enid_split/ENID_v1.0_dataset `
+  --results experiments/outputs/enid-full-01/results.csv `
+  --output experiments/outputs/enid-box-baseline `
+  --language pt-BR `
+  --expected-sha256 74c82a21a8205961f70b59305f51c1d5a48762fd1a3e2421b1bd74a22c604d81
+```
+
+| File | Definition |
+| --- | --- |
+| `box_baseline.csv` | One row per annotation: identity, bbox, reference/box areas, reference pixels outside the rasterized box, `fill_ratio = reference_area / box_area`, SAM `dice`/`iou`, `box_dice`/`box_iou`, `dice_gain = dice - box_dice`, `iou_gain = iou - box_iou`. |
+| `box_baseline_summary.json` | Means/medians, count and % with `dice_gain > 0`, % with `box_dice >= 0.80`, reference pixels outside the box, exploratory fill-ratio terciles, bootstrap CIs, SHA-256 of results and COCO/split JSONs, package versions with the `pycocotools` module path, and conventions. |
+| `dice_gain_vs_fill_ratio.png` | Exploratory scatter of Dice gain vs. fill ratio, localized with `localize_figure` plus figure-specific pt-BR strings. |
+
+`cluster_bootstrap()` gives 95% percentile CIs for the mean of `dice`, `iou`,
+`box_dice`, `box_iou`, `dice_gain` and `iou_gain`. It resamples whole clusters
+with replacement (as many as observed), so annotations sharing a cluster are
+never split; each replicate mean is weighted by annotations. One draw matrix
+from `numpy.random.default_rng(20261027)` is shared by all columns; 10,000
+resamples; linear quantiles. `group_id` is the primary cluster and `image_id`
+a sensitivity analysis. These intervals describe sampling variability of
+the ENID annotation means under cluster resampling; they are not clinical
+validation and do not make `group_id` a patient identifier. Terciles use
+equal-frequency bins on fill-ratio ranks (ties by annotation ID) and are
+exploratory. Outputs follow the same new-or-empty directory rule.
+
 ## Interpretation limits
 
 - ENID contains endometriosis lesions, not peritoneal carcinomatosis.
