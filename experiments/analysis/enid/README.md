@@ -169,6 +169,74 @@ selection reason and rank are available for later inspection.
 The candidate list supports the separate qualitative renderer below; no cases
 are labelled clinically good or bad.
 
+## Filled-bbox baseline and cluster-bootstrap CIs
+
+A separate CPU-only command measures how much SAM adds beyond its own prompt.
+The oracle XYWH bbox is rasterized as the rectangle polygon
+`[x,y, x+w,y, x+w,y+h, x,y+h]` with the same pycocotools convention as the
+reference (`frPyObjects -> merge -> decode`) and compared with the canonical
+reference mask using the existing `overlap_metrics()`. SAM Dice/IoU are read
+from `results.csv`, never recomputed. Every results row must match a canonical
+annotation (`load_samples`) in identity, bbox and reference area, or the run
+aborts before writing.
+
+```powershell
+.venv/Scripts/python.exe scripts/analyze_enid_box_baseline.py `
+  --dataset-root datasets/raw/enid/ENID_v1.0_dataset `
+  --split-root datasets/raw/enid_split/ENID_v1.0_dataset `
+  --results experiments/outputs/enid-full-01/results.csv `
+  --output experiments/outputs/enid-box-baseline `
+  --language pt-BR `
+  --expected-sha256 74c82a21a8205961f70b59305f51c1d5a48762fd1a3e2421b1bd74a22c604d81
+```
+
+| File | Definition |
+| --- | --- |
+| `box_baseline.csv` | One row per annotation: identity, bbox, reference/box areas, reference pixels outside the rasterized box, `fill_ratio = reference_area / box_area`, SAM `dice`/`iou`, `box_dice`/`box_iou`, `dice_gain = dice - box_dice`, `iou_gain = iou - box_iou`. |
+| `box_baseline_summary.json` | Means/medians, count and % with `dice_gain > 0`, % with `box_dice >= 0.80`, reference pixels outside the box, exploratory fill-ratio terciles, bootstrap CIs, SHA-256 of results and COCO/split JSONs, package versions with the `pycocotools` module path, and conventions. |
+| `dice_gain_vs_fill_ratio.png` | Exploratory scatter of Dice gain vs. fill ratio, localized with `localize_figure` plus figure-specific pt-BR strings. |
+
+`cluster_bootstrap()` gives 95% percentile CIs for the mean of `dice`, `iou`,
+`box_dice`, `box_iou`, `dice_gain` and `iou_gain`. It resamples whole clusters
+with replacement (as many as observed), so annotations sharing a cluster are
+never split; each replicate mean is weighted by annotations. One draw matrix
+from `numpy.random.default_rng(20261027)` is shared by all columns; 10,000
+resamples; linear quantiles. `group_id` is the primary cluster and `image_id`
+a sensitivity analysis. These intervals describe sampling variability of
+the ENID annotation means under cluster resampling; they are not clinical
+validation and do not make `group_id` a patient identifier. Terciles use
+equal-frequency bins on fill-ratio ranks (ties by annotation ID) and are
+exploratory. Outputs follow the same new-or-empty directory rule.
+
+## Box-prompt robustness analysis
+
+`robustness_analysis.py` consolidates the robustness run
+(`experiments/benchmarks/enid/README.md`) on CPU, reading only
+`results_long.csv` and `image_timing.csv`. All five conditions must cover the
+same annotation set. It reuses `cluster_bootstrap`, `SEED`, `N_RESAMPLES`,
+`LEVEL` and the tercile labels from `box_baseline.py`.
+
+```powershell
+.venv/Scripts/python.exe scripts/analyze_enid_box_robustness.py `
+  --results experiments/outputs/enid-box-robustness/results_long.csv `
+  --output experiments/outputs/enid-box-robustness-analysis `
+  --language pt-BR `
+  --expected-sha256 5fc5d15aab2f3eee4366ecfd654ec76b405b3ecba61c8c35e715984c56cefd81
+```
+
+| File | Definition |
+| --- | --- |
+| `robustness_by_condition.csv` | Per condition: n, Dice mean/median, IoU mean, prompt-box Dice mean, gain (SAM − box), % SAM > box, clipped boxes; 95% CIs (group_id and image_id) for Dice, IoU, gain, prompt-box Dice and, except ref, the paired Dice difference vs. ref. |
+| `robustness_paired.csv` | Per non-ref condition: paired Dice difference vs. ref (computed per annotation, joined on `annotation_id`, before the bootstrap) with CIs; better/equal/worse counts; for jitter10/expand10/expand20 the box and SAM losses vs. ref and the descriptive absorbed fraction `1 − ΔSAM/Δbox` on means (no CI). |
+| `normalized_gain_by_tercile.csv` | Exploratory, ref only: `(dice − box) / (1 − box)` (undefined when box Dice is 1) by fill-ratio tercile, with median fill ratio, raw and normalized gain, and % SAM > box. |
+| `timing_summary.csv` | Median, P5, P95 of embedding time (per image) and prediction time (per condition and overall). Times are comparable only within the same execution. |
+| `robustness_summary.json` | All of the above plus input hashes, seed, resamples, conventions and package versions. |
+| `robustness_dice_by_condition.png` | Mean SAM Dice and mean filled prompt-box Dice for ref, jitter10, expand10, expand20 with group_id 95% CIs; distinct markers for grayscale printing; ref_single excluded. |
+
+Each condition is bootstrapped separately with the same seed over the same
+annotations and clusters, so all conditions share one resampling matrix per
+cluster type. pt-BR labels say "caixa delimitadora", never "bbox".
+
 ## Interpretation limits
 
 - ENID contains endometriosis lesions, not peritoneal carcinomatosis.
