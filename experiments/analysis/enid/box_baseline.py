@@ -39,9 +39,11 @@ OUTPUT_COLUMNS = (
 )
 # Supplements localization.PT_BR for this figure only; applied after localize_figure.
 PT_BR_EXTRA = {
-    "Dice gain over the filled reference bbox": "Ganho de Dice sobre a bbox de referência preenchida",
-    "Fill ratio (reference area / bbox area)": "Razão de preenchimento (área da referência / área da bbox)",
-    "Dice gain (SAM − filled bbox)": "Ganho de Dice (SAM − bbox preenchida)",
+    "Dice gain over the filled reference bbox":
+        "Ganho de Dice sobre a caixa delimitadora de referência preenchida",
+    "Fill ratio (reference area / bbox area)":
+        "Razão de preenchimento (área da referência / área da caixa delimitadora)",
+    "Dice gain (SAM − filled bbox)": "Ganho de Dice (SAM − caixa delimitadora preenchida)",
     "Positive gain": "Ganho positivo",
     "Exploratory, annotation-level": "Exploratório, por anotação",
 }

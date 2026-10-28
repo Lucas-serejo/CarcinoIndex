@@ -77,10 +77,43 @@ Os hashes e versões ajudam a reproduzir a execução; não há garantia de igua
 bit a bit entre hardware, kernels e versões diferentes. Não são gerados PNGs,
 figuras ou relatórios clínicos.
 
+## Robustez a caixas imprecisas
+
+Experimento separado (`robustness.py`), com saída nova, que mede a sensibilidade
+do SAM a caixas desenhadas com imprecisão. Para cada annotation, com um único
+`set_image` por imagem, roda cinco condições nesta ordem:
+
+| Condição | Prompt | `multimask_output` |
+| --- | --- | --- |
+| `ref` | bbox original XYXY (idêntico ao benchmark) | `True` |
+| `ref_single` | bbox original (ablação; `selected_index` sempre 0) | `False` |
+| `expand10` / `expand20` | cada lado expandido para fora em 10% / 20% da largura (x) ou altura (y) | `True` |
+| `jitter10` | cada coordenada deslocada por U[−10%, +10%] da largura (x) ou altura (y) | `True` |
+
+O jitter usa `numpy.random.default_rng([20261027, annotation_id])`, portanto não
+depende da ordem de execução. Caixas perturbadas são recortadas a
+`[0, width] × [0, height]` (`clipped` registra o recorte); uma caixa invertida ou
+vazia é erro, validado antes de carregar o modelo. Coordenadas ficam em float.
+Cada linha também traz `prompt_box_dice`/`prompt_box_iou`, da própria caixa
+rasterizada por `box_baseline.box_mask`. A condição `ref` reproduziu
+`enid-full-01/results.csv` exatamente nas 358 annotations (áreas, índice,
+score, Dice e IoU sem diferença).
+
+```text
+python scripts/run_enid_box_robustness.py --dataset-root datasets/raw/enid/ENID_v1.0_dataset --split-root datasets/raw/enid_split/ENID_v1.0_dataset --checkpoint ../sam2/checkpoints/sam2.1_hiera_small.pt --output experiments/outputs/enid-box-robustness --device cuda --dtype float32 --expected-checkpoint-sha256 6d1aa6f30de5c92224f8172114de081d104bbd23dd9dc5c58996f0cad5dc4d38
+```
+
+Saídas: `results_long.csv` (annotation × condição), `image_timing.csv`
+(embedding por imagem) e `summary.json` (definições das condições, seed, versões,
+origem do pycocotools, hashes, GPU e médias por condição), com o mesmo regime de
+diretório novo, gravação incremental e status `complete`/`incomplete` do runner.
+A análise CPU desses resultados está em `experiments/analysis/enid/README.md`.
+
 ## Testes
 
 ```text
 python -m pytest tests/experiments/test_enid_benchmark.py -q
+python -m pytest tests/experiments/test_enid_robustness.py -q
 python -m pytest -q -ra -m "not sam2_integration and not sam2_api_integration"
 ```
 
