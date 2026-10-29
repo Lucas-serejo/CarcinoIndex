@@ -13,7 +13,7 @@ PT_BR = {
     "Reference-mask area (pixels; log scale)": "Área da máscara de referência (pixels; escala logarítmica)",
     "Pearson (raw area)": "Pearson (área original)",
     "undefined": "indefinido",
-    "A. Original + reference bbox": "A. Imagem original + bbox de referência",
+    "A. Original + reference bbox": "A. Imagem original + caixa delimitadora de referência",
     "B. ENID reference segmentation": "B. Segmentação de referência do ENID",
     "C. SAM selected mask": "C. Máscara selecionada pelo SAM",
     "D. Mask agreement / disagreement": "D. Concordância / discordância das máscaras",
