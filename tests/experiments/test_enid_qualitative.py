@@ -345,4 +345,4 @@ def test_comparison_localization_preserves_geometry_and_artists(research, tmp_pa
         for a, b in zip(english[:3], portuguese[:3]): np.testing.assert_allclose(a, b, atol=1e-10, rtol=0)
         for a, b in zip(english[3], portuguese[3]): np.testing.assert_array_equal(a, b)
         assert english[4] != portuguese[4]
-    assert captured[1][0][4] == "A. Imagem original + bbox de referência"
+    assert captured[1][0][4] == "A. Imagem original + caixa delimitadora de referência"
