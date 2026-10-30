@@ -4,9 +4,14 @@
   --surface: #fff;
   --surface-subtle: #eef4f0;
   --text: #243430;
-  --muted: #53645d;
+  --muted: #46554f;
   --border: #dce3df;
   --border-strong: #9aac9f;
+  --disabled-surface: #e3e8e5;
+  --text-xs: 13px;
+  --text-sm: 14px;
+  --text-md: 16px;
+  --text-lg: 18px;
   --accent: #28695c;
   --accent-hover: #1d5146;
   --success: #287045;
