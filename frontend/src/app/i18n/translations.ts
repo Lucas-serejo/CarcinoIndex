@@ -34,7 +34,7 @@ export const ptBR: Readonly<Record<string, string>> = {
   '01 Setup': '01 Preparação',
   '02 Segmentation': '02 Segmentação',
   '03 Clinical assessment': '03 Avaliação clínica',
-  'Specialist-guided segmentation': 'Segmentação assistida por especialista',
+  'Specialist-guided segmentation': 'Pesquisa em segmentação assistida',
   'Assisted segmentation.': 'Segmentação assistida.',
   'Specialist review.': 'Avaliação especializada.',
   'Investigate SAM 2.1 segmentations of lesions previously indicated by the specialist.': 'Investigue segmentações produzidas pelo SAM 2.1 a partir de lesões previamente indicadas pelo especialista.',

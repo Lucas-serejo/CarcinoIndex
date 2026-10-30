@@ -2,8 +2,12 @@
 .image-stage { position: relative; background: #17211e; }
 .original { display: block; width: 100%; height: auto; user-select: none; }
 .mask, .interaction { position: absolute; inset: 0; width: 100%; height: 100%; }
-.mask { pointer-events: none; opacity: .5; mix-blend-mode: screen; }
+/* Shift the grayscale mask's black to 50% gray (neutral under hard-light) and saturate the
+   lesion to teal: a translucent tint inside the mask, the image untouched outside it. */
+.mask { pointer-events: none; opacity: .6; mix-blend-mode: hard-light;
+  filter: brightness(.2) sepia(1) contrast(.5) brightness(2) saturate(20) hue-rotate(150deg); }
 .interaction { touch-action: none; cursor: crosshair; }
 .interaction.disabled { cursor: wait; }
-rect { fill: rgb(255 210 90 / 10%); stroke: #ffd25a; stroke-width: 3px; vector-effect: non-scaling-stroke; }
+rect { fill: rgb(255 210 90 / 10%); stroke: #ffd25a; stroke-width: 3px; vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 0 1.5px rgb(0 0 0 / 85%)); }
 .error { color: var(--danger); }
