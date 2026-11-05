@@ -84,6 +84,16 @@ class ExperimentRepository:
     def finalize_evaluation(self, evaluation_id: UUID, *, clinical_ls: int | None,
                             reviewed_attempt_id: UUID, segmentation_quality: str,
                             annotator_confidence: float | None = None) -> Evaluation:
+        """Record the specialist's assessment and mark a draft Evaluation finalized.
+
+        ``clinical_ls`` must be an integer 0-3 or ``None`` (not determined);
+        ``annotator_confidence`` must be ``None`` when LS is ``None``. The
+        Evaluation row is locked, must still be ``draft``, and the reviewed
+        attempt must belong to it. Raises ``LookupError`` for a missing
+        Evaluation, ``ValueError`` for invalid LS/confidence or an already
+        finalized Evaluation, and ``InvalidSegmentationReview`` for an invalid
+        quality or a missing/foreign attempt. Flushes; the caller commits.
+        """
         if clinical_ls is not None and (type(clinical_ls) is not int or clinical_ls not in range(4)):
             raise ValueError("clinical_ls must be null or an integer between 0 and 3.")
         if clinical_ls is None and annotator_confidence is not None:

@@ -1,4 +1,4 @@
-"""Initial experiment schema. Clinical labels belong only to evaluations."""
+"""Experiment schema (migrations 0001-0003). Clinical labels belong only to evaluations."""
 
 from datetime import datetime
 from typing import Any

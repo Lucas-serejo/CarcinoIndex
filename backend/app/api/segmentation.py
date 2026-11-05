@@ -1,4 +1,10 @@
-"""Multipart endpoint for assisted SAM 2 image segmentation."""
+"""Multipart endpoints for assisted SAM 2 image segmentation.
+
+``POST /segmentations`` is stateless: it receives the image and returns the mask
+without persisting anything. ``POST /evaluations/{evaluation_id}/segmentations``
+reads the stored image of a draft Evaluation and persists the prompt, mask and
+SAM metadata as a SegmentationAttempt. Both share the same prompt parser.
+"""
 
 from __future__ import annotations
 

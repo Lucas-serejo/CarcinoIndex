@@ -37,6 +37,11 @@ function isApiErrorResponse(value: unknown): value is ApiErrorResponse {
   );
 }
 
+/**
+ * HTTP client for the FastAPI backend, using relative URLs (proxied in development).
+ * Every error is mapped to an `Error` whose message is the backend's safe
+ * `{ error: { code, message } }` message, or a generic fallback.
+ */
 @Injectable({ providedIn: 'root' })
 export class ExperimentApiService {
   private readonly http = inject(HttpClient);
@@ -63,6 +68,11 @@ export class ExperimentApiService {
     );
   }
 
+  /**
+   * Creates a persisted segmentation attempt from a bounding box.
+   * The box is sent as `[xMin, yMin, xMax, yMax]` in original-image pixels, always
+   * with `multimask_output=true` (SAM keeps its highest-scoring candidate).
+   */
   createBoxSegmentationAttempt(evaluationId: string, box: ImageBox): Observable<PersistedSegmentationResponse> {
     const body = new FormData();
     body.append('prompt_type', 'box');

@@ -57,6 +57,15 @@ def run_benchmark(*, dataset_root: Path, split_root: Path, checkpoint: Path,
                   device: str = "cuda", dtype: str = "float32",
                   model_config: str = DEFAULT_MODEL_CONFIG,
                   segmenter_factory=SAM2Segmenter) -> dict:
+    """Run Experiment A: one reference-box prompt per selected ENID annotation.
+
+    Each box is the COCO bbox converted to XYXY, with ``multimask_output=True``;
+    the mask kept is ``selected_mask`` (highest SAM predicted score), never chosen
+    by overlap with the reference. Annotations are grouped by image so there is one
+    ``set_image`` per frame. ``output`` must be new or empty and outside the input
+    directories. Writes ``results.csv`` and ``summary.json`` (``results.incomplete.csv``
+    and an ``incomplete`` summary on failure) and returns the summary.
+    """
     started = time.perf_counter()
     # Never let an output argument write into the read-only experimental inputs.
     raw_root = Path(__file__).resolve().parents[3] / "datasets" / "raw"

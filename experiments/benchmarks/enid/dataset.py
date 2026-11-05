@@ -27,6 +27,7 @@ class Sample:
 
 
 def group_id(file_name: str) -> str:
+    """Return the ``c_<n>`` filename prefix; its clinical meaning is undocumented (not a patient ID)."""
     match = re.match(r"^(c_\d+)_", file_name)
     if not match:
         raise ValueError("ENID file_name must start with c_<number>_.")
@@ -34,6 +35,7 @@ def group_id(file_name: str) -> str:
 
 
 def xywh_to_xyxy(bbox: tuple[float, ...]) -> tuple[float, ...]:
+    """Convert a COCO ``[x, y, w, h]`` bbox to ``[x_min, y_min, x_max, y_max]``, without padding or jitter."""
     x, y, width, height = bbox
     return x, y, x + width, y + height
 
@@ -152,6 +154,10 @@ def load_samples(dataset_root: Path, split_root: Path, split: str = "all",
 
 
 def reference_mask(sample: Sample) -> np.ndarray:
+    """Rasterize the union of the annotation's COCO polygons at the original resolution.
+
+    Uses pycocotools ``frPyObjects -> merge -> decode``; an empty result raises.
+    """
     rles = coco_mask.frPyObjects(sample.segmentation, sample.height, sample.width)
     result = coco_mask.decode(coco_mask.merge(rles)).astype(bool)
     if not result.any():
@@ -160,6 +166,11 @@ def reference_mask(sample: Sample) -> np.ndarray:
 
 
 def overlap_metrics(prediction: np.ndarray, reference: np.ndarray) -> dict:
+    """Dice and IoU between two boolean HxW masks, from pixel counts.
+
+    Areas are pixel counts, never the COCO ``area`` field. By convention, two
+    empty masks give Dice = IoU = 1.0.
+    """
     if prediction.dtype != bool or reference.dtype != bool:
         raise ValueError("Metrics require boolean masks.")
     if prediction.ndim != 2 or prediction.shape != reference.shape:

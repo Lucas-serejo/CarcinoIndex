@@ -75,6 +75,12 @@ export class ClinicalAssessmentComponent implements OnInit {
     });
   }
 
+  /**
+   * Freezes the request snapshot shown before finalization.
+   * "Could not determine" sends `clinical_ls: null` and `annotator_confidence: null`;
+   * otherwise the 0-100% confidence is divided by 100 for the backend's 0-1 contract
+   * (blank stays `null`).
+   */
   reviewAssessment(): void {
     if (this.state() !== 'editing') return;
     this.form.markAllAsTouched();

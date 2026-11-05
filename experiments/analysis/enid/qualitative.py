@@ -26,6 +26,14 @@ from .rendering import COLORS, ALPHA, _comparison
 def render_cases(*, dataset_root: Path, split_root: Path, results: Path, cases: Path,
                  checkpoint: Path, output: Path, device="cuda", dtype="float32",
                  model_config=DEFAULT_MODEL_CONFIG, segmenter_factory=SAM2Segmenter):
+    """Recreate SAM masks for the verified extreme cases and render comparison figures.
+
+    ``cases`` must match the deterministic selection recomputed from ``results``.
+    Rerun Dice/IoU must agree within ``TOLERANCE`` and areas and selected index
+    exactly, otherwise the run aborts; ``results`` is never modified. Writes
+    ``manifest.json``, ``cases.csv`` and per-annotation masks/figures to a new or
+    empty ``output`` and returns the manifest.
+    """
     for protected in (dataset_root, split_root,
                       Path(__file__).resolve().parents[3] / "datasets" / "raw"):
         if output.resolve().is_relative_to(protected.resolve()):
