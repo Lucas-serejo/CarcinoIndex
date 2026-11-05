@@ -1,3 +1,5 @@
+**Language:** English · [Português](README.pt-BR.md)
+
 # CarcinoIndex
 
 CarcinoIndex is an experimental human-in-the-loop platform for investigating
@@ -9,14 +11,26 @@ indicates the clinical object of interest; SAM turns that prompt into a
 segmentation mask for subsequent quantitative research. Clinical lesion score
 (LS) is supplied by the specialist and is never inferred by SAM.
 
-Academic documentation and thesis writing are developed in Portuguese.
+Documentation is available in English and Portuguese; the thesis is written in
+Portuguese.
 
 ## Research objective and limits
 
-Evaluate whether SAM 2.1 can adequately represent specialist-indicated peritoneal
-lesions in laparoscopic images, producing masks suitable for quantitative analysis.
+Evaluate to what extent SAM 2.1, conditioned on a known lesion location (a
+bounding box), produces masks spatially consistent with reference segmentations
+in laparoscopic images. The current benchmark uses ENID (endometriosis) as a
+laparoscopic proxy; it is not clinical validation for peritoneal carcinomatosis.
 This is a research objective, not a claim of clinical validation, diagnostic
 performance, or LS prediction performance.
+
+The repository uses two experiment labels:
+
+- **Experiment A**: the offline technical benchmark on ENID, with reference
+  bounding boxes as prompts and ENID reference segmentations as the comparison.
+  This is the experiment evaluated in the TCC.
+- **Experiment B**: a planned target-domain evaluation with laparoscopic
+  peritoneal carcinomatosis images and specialist review of the CarcinoIndex
+  segmentation and workflow. It has not been carried out yet.
 
 Physical lesion size in centimeters is not directly recoverable from monocular
 image pixels without calibration, a physical reference, or depth information.
@@ -29,10 +43,7 @@ SAM mask into a reference mask or establish any of these mask states.
 SAM's `selected_score` is an internal predicted quality/ranking score,
 not clinical confidence.
 
-The planned next scientific stage is a small target-domain evaluation using
-laparoscopic peritoneal carcinomatosis images, with specialist review of the
-CarcinoIndex segmentation and workflow (Experiment B). The implemented qualitative
-categories are `adequate`, `partially_adequate`, and `inadequate`; the broader study
+For the planned Experiment B, the implemented qualitative categories are `adequate`, `partially_adequate`, and `inadequate`; the broader study
 protocol remains pending validation. Manual mask correction or reference-mask creation is
 not required by the minimum current TCC protocol.
 
@@ -61,8 +72,8 @@ The Angular frontend and FastAPI backend support:
    The annotator code remains editable and prefilled; language and loaded regions
    are preserved. The next submission creates a new case, image, and Evaluation.
 
-In Experiment B, the visible case code identifies an experimental case, not a
-patient. Each photograph may be treated as a new case; no patient relationship is
+For the planned Experiment B, the visible case code identifies an experimental
+case, not a patient. Each photograph may be treated as a new case; no patient relationship is
 inferred between images. The internal API/database name `anonymous_patient_code`
 remains unchanged. Resetting the workflow does not alter previous persisted records.
 

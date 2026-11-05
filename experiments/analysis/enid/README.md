@@ -1,3 +1,5 @@
+**Language:** English · [Português](README.pt-BR.md)
+
 # ENID quantitative analysis
 
 This directory holds the analysis and figure tools that run on the outputs of

@@ -1,0 +1,151 @@
+**Idioma:** [English](README.md) · Português
+<!-- synced with README.md @ d88deef -->
+
+# Experimento A — segmentação guiada ENID
+
+Pergunta: dada uma lesão laparoscópica localizada por uma caixa delimitadora de
+referência, quão semelhante é a máscara do SAM 2.1 Hiera Small à segmentação
+de referência disponibilizada pelo ENID?
+
+ENID é um proxy laparoscópico de lesões de **endometriose**, não carcinomatose
+peritoneal. A caixa delimitadora oficial é um **oracle/control prompt**: este
+experimento mede segmentação com localização conhecida, não detecção. Não há
+treinamento, fine-tuning, classificação LS, PCI ou alegação de validação clínica.
+
+## Protocolo
+
+- Unidade experimental: uma anotação. `coco.json` é a fonte canônica de `bbox`
+  e `segmentation`; `annots/*.png` não participa do experimento.
+- Os três JSONs oficiais determinam o split. IDs e grupos devem ser disjuntos e
+  cobrir o COCO canônico. `group_id` é o prefixo `c_<n>` do filename; sua
+  semântica clínica não está documentada, portanto não é chamado patient_id.
+- A caixa delimitadora COCO XYWH vira `[x, y, x + width, y + height]`, sem
+  padding ou jitter.
+- `pycocotools.mask.frPyObjects → merge → decode` rasteriza a união dos polígonos
+  na resolução original de cada imagem. Uma máscara de referência rasterizada
+  vazia é erro.
+- Reutiliza `SAM2Segmenter`, `DEFAULT_MODEL_CONFIG` e `SegmentationResult`.
+  Imagens RGB uint8 são carregadas sem resize manual. Há um `set_image` por frame,
+  prompts sequenciais e limpeza de estado ao terminar cada frame.
+- `multimask_output=True`; usa exatamente `selected_mask`, selecionada pelo maior
+  score previsto pelo SAM. Nunca escolhe a máscara pela sobreposição com a
+  referência. `selected_score` **não é confiança clínica**.
+- Ordena as anotações por ID crescente, filtra o split e aplica `--limit N`.
+  Depois agrupa as selecionadas por imagem para reutilizar embeddings. A ordem
+  das linhas pode diferir da ordem global dos IDs quando estes se intercalam.
+- Dice = `2 * intersection / (prediction_area + reference_area)`;
+  IoU = `intersection / union`, sobre máscaras booleanas. Áreas são contagens de
+  pixels, nunca o campo COCO `area`. Predição vazia contra referência não vazia
+  produz zero. A função de métricas convenciona 1 para duas máscaras vazias,
+  mas o runner rejeita referência vazia.
+
+## Execução
+
+Instale `backend/requirements.txt` e configure o SAM/checkpoint local conforme
+[o guia existente](../../../docs/methodology/sam2_windows_setup.md).
+
+Estrutura esperada dos diretórios passados em `--dataset-root` e `--split-root`
+(os frames são lidos de `frames/` pelo `file_name` do COCO canônico):
+
+```text
+<dataset-root>/
+  coco.json              # canonical COCO: bbox and segmentation
+  frames/
+    <file_name>          # one file per image in coco.json
+<split-root>/
+  coco_train.json
+  coco_val.json
+  coco_test.json
+```
+
+Da raiz do repositório (comando em uma linha, também compatível com PowerShell):
+
+```text
+python scripts/run_enid_benchmark.py --dataset-root datasets/raw/enid/ENID_v1.0_dataset --split-root datasets/raw/enid_split/ENID_v1.0_dataset --checkpoint ../sam2/checkpoints/sam2.1_hiera_small.pt --output experiments/outputs/enid-smoke --split all --device cuda --dtype float32 --limit 3
+```
+
+`--split` aceita `all` (default), `train`, `val`, `test`. Remover `--limit` executa
+toda a seleção; o benchmark completo é uma etapa posterior à implementação.
+`--config` tem default `DEFAULT_MODEL_CONFIG`; `--dtype` aceita `float32` (default)
+e `bfloat16`. Não há fallback automático de CUDA para CPU.
+
+Use um diretório de saída novo/vazio em cada execução. Diretórios dentro dos
+inputs ou de `datasets/raw`, assim como diretórios de saída não vazios, são
+recusados na pré-validação, antes de inicializar os outputs experimentais.
+Esses erros encerram a CLI com código não zero e mensagem no stderr, sem iniciar
+uma execução do benchmark nem gerar novos arquivos de resumo ou resultados.
+Datasets e outputs permanecem locais e ignorados pelo Git.
+
+- `results.csv`: uma linha por anotação, IDs, split, grupo, filename relativo,
+  dimensões, caixa delimitadora, quantidade de polígonos, áreas, Dice/IoU e
+  seleção/tempo do SAM. `prediction_time_seconds` é o tempo de predição medido
+  pelo wrapper, sem o embedding.
+- `summary.json`: status, UTC, contagens, seleção, hashes SHA-256 do COCO, splits e
+  checkpoint, modelo/config/device/dtype, versões de pacotes, política de seleção,
+  médias e medianas por anotação (overall e por split) e tempo total, incluindo
+  validação, hashing, carregamento e inferência. Não é uma estimativa por paciente.
+- Após a inicialização dos outputs, falhas de configuração, dados ou inferência
+  encerram a CLI com código não zero e mensagem no stderr. O runner registra
+  resumo `incomplete` e preserva `results.incomplete.csv`, quando criado; o CSV
+  pode conter apenas o cabeçalho se nenhuma anotação foi concluída. Esse
+  registro depende de a saída continuar gravável. Resultados parciais não são
+  resultados de uma execução completa. `failure_count` conta o evento fatal
+  (inclusive erro de configuração), `success_count` conta linhas concluídas.
+  `images_processed` conta imagens com pelo menos uma anotação concluída. O resumo
+  identifica etapa/IDs/tipo do erro sem persistir caminhos absolutos.
+
+Os hashes e versões ajudam a reproduzir a execução; não há garantia de igualdade
+bit a bit entre hardware, kernels e versões diferentes. Não são gerados PNGs,
+figuras ou relatórios clínicos.
+
+## Robustez a caixas imprecisas
+
+Experimento separado (`robustness.py`), com saída nova, que mede a sensibilidade
+do SAM a caixas desenhadas com imprecisão. Para cada anotação, com um único
+`set_image` por imagem, roda cinco condições nesta ordem:
+
+| Condição | Prompt | `multimask_output` |
+| --- | --- | --- |
+| `ref` | caixa delimitadora original XYXY (idêntica ao benchmark) | `True` |
+| `ref_single` | caixa delimitadora original (ablação; `selected_index` sempre 0) | `False` |
+| `expand10` / `expand20` | cada lado expandido para fora em 10% / 20% da largura (x) ou altura (y) | `True` |
+| `jitter10` | cada coordenada deslocada por U[−10%, +10%] da largura (x) ou altura (y) | `True` |
+
+O jitter usa `numpy.random.default_rng([20261027, annotation_id])`, portanto não
+depende da ordem de execução. Caixas perturbadas são recortadas a
+`[0, width] × [0, height]` (`clipped` registra o recorte); uma caixa invertida ou
+vazia é erro, validado antes de carregar o modelo. Coordenadas ficam em float.
+Cada linha também traz `prompt_box_dice`/`prompt_box_iou`, da própria caixa
+rasterizada por `box_baseline.box_mask`. A condição `ref` reproduziu
+`enid-full-01/results.csv` exatamente nas 358 anotações (áreas, índice,
+score, Dice e IoU sem diferença).
+
+```text
+python scripts/run_enid_box_robustness.py --dataset-root datasets/raw/enid/ENID_v1.0_dataset --split-root datasets/raw/enid_split/ENID_v1.0_dataset --checkpoint ../sam2/checkpoints/sam2.1_hiera_small.pt --output experiments/outputs/enid-box-robustness --device cuda --dtype float32 --expected-checkpoint-sha256 6d1aa6f30de5c92224f8172114de081d104bbd23dd9dc5c58996f0cad5dc4d38
+```
+
+A CLI aceita as mesmas opções do benchmark: `--split` (`all` default, `train`,
+`val`, `test`), `--limit N`, `--config` (default `DEFAULT_MODEL_CONFIG`) e
+`--dtype` (`float32` default ou `bfloat16`). `--expected-checkpoint-sha256` é
+opcional: se o hash do checkpoint for diferente, a execução é abortada antes de
+ler o dataset e de carregar o modelo, com resumo `incomplete`.
+
+Saídas: `results_long.csv` (anotação × condição), `image_timing.csv`
+(embedding por imagem) e `summary.json` (definições das condições, seed, versões,
+o caminho do módulo pycocotools no ambiente de execução, hashes, GPU e médias por
+condição), com o mesmo regime de diretório novo, gravação incremental e status
+`complete`/`incomplete` do runner. A análise CPU desses resultados está em
+`experiments/analysis/enid/README.md` (versão em português:
+[README.pt-BR.md](../../analysis/enid/README.pt-BR.md)).
+
+## Testes
+
+```text
+python -m pytest tests/experiments/test_enid_benchmark.py -q
+python -m pytest tests/experiments/test_enid_robustness.py -q
+python -m pytest -q -ra -m "not sam2_integration and not sam2_api_integration"
+```
+
+Fixtures sintéticas temporárias e um fake que retorna `SegmentationResult`
+verificam COCO, splits, rasterização, métricas, seleção, ciclo de vida e falhas.
+Esses testes não carregam `sam2`, checkpoint real, GPU ou ENID real.
