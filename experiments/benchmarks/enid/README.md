@@ -37,7 +37,22 @@ fine-tuning, classificação LS, PCI ou alegação de validação clínica.
 ## Execução
 
 Instale `backend/requirements.txt` e configure o SAM/checkpoint local conforme
-[o guia existente](../../../../docs/methodology/sam2_windows_setup.md).
+[o guia existente](../../../docs/methodology/sam2_windows_setup.md).
+
+Estrutura esperada dos diretórios passados em `--dataset-root` e `--split-root`
+(os frames são lidos de `frames/` pelo `file_name` do COCO canônico):
+
+```text
+<dataset-root>/
+  coco.json              # COCO canônico: bbox e segmentation
+  frames/
+    <file_name>          # um arquivo por imagem do coco.json
+<split-root>/
+  coco_train.json
+  coco_val.json
+  coco_test.json
+```
+
 Da raiz do repositório (comando em uma linha, também compatível com PowerShell):
 
 ```text
@@ -103,9 +118,16 @@ score, Dice e IoU sem diferença).
 python scripts/run_enid_box_robustness.py --dataset-root datasets/raw/enid/ENID_v1.0_dataset --split-root datasets/raw/enid_split/ENID_v1.0_dataset --checkpoint ../sam2/checkpoints/sam2.1_hiera_small.pt --output experiments/outputs/enid-box-robustness --device cuda --dtype float32 --expected-checkpoint-sha256 6d1aa6f30de5c92224f8172114de081d104bbd23dd9dc5c58996f0cad5dc4d38
 ```
 
+A CLI aceita as mesmas opções do benchmark: `--split` (`all` default, `train`,
+`val`, `test`), `--limit N`, `--config` (default `DEFAULT_MODEL_CONFIG`) e
+`--dtype` (`float32` default ou `bfloat16`). `--expected-checkpoint-sha256` é
+opcional: se o hash do checkpoint for diferente, a execução é abortada antes de
+ler o dataset e de carregar o modelo, com resumo `incomplete`.
+
 Saídas: `results_long.csv` (annotation × condição), `image_timing.csv`
 (embedding por imagem) e `summary.json` (definições das condições, seed, versões,
-origem do pycocotools, hashes, GPU e médias por condição), com o mesmo regime de
+o caminho do módulo pycocotools no ambiente de execução, hashes, GPU e médias por
+condição), com o mesmo regime de
 diretório novo, gravação incremental e status `complete`/`incomplete` do runner.
 A análise CPU desses resultados está em `experiments/analysis/enid/README.md`.
 

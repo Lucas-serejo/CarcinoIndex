@@ -1,5 +1,10 @@
 # M1 — SAM 2.1 Hiera Small em Windows nativo
 
+> **Registro histórico (M1/M2).** Este documento preserva o ambiente validado e
+> as decisões das milestones M1 e M2. A integração do SAM 2.1 à API, citada
+> abaixo como reservada à M3, já foi implementada; o comportamento atual está em
+> [contrato de inferência do SAM 2.1](../architecture/sam2_inference_contract.md).
+
 ## Objetivo e escopo
 
 Esta milestone verifica exclusivamente a viabilidade técnica do SAM 2.1

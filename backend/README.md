@@ -1,4 +1,4 @@
-# Backend CarcinoIndex — M3
+# Backend CarcinoIndex
 
 Experimental API for specialist-guided SAM 2.1 Hiera Small segmentation and manual
 PCI composition. SAM produces a mask from box or point prompts; it does not
@@ -35,6 +35,19 @@ $env:MAX_IMAGE_PIXELS = "16000000"
 $env:API_PREFIX = "/api/v1"
 ```
 
+Persistência (necessária para as rotas persistidas):
+
+```powershell
+$env:DATABASE_URL = "postgresql+psycopg://usuario:senha@127.0.0.1:5432/carcinoindex"
+$env:STORAGE_ROOT = "storage"
+```
+
+`DATABASE_URL` precisa usar o driver `postgresql+psycopg`. `STORAGE_ROOT` é
+opcional (padrão `storage`, resolvido a partir do diretório de execução). Sem
+`DATABASE_URL`, a API sobe normalmente, mas as rotas persistidas respondem
+`503` com o código `persistence_unavailable`; as rotas stateless continuam
+disponíveis.
+
 O caminho do checkpoint é obrigatório no startup real. Não há fallback para
 CPU ou para outro modelo.
 
@@ -52,16 +65,28 @@ Execute a partir da raiz do repositório:
 Nesta fase são obrigatórios um único worker e uma inferência por vez. O modelo
 é carregado uma vez no lifespan e fechado no shutdown.
 
-Rotas:
+Rotas stateless (não exigem banco):
 
 - `GET /health`;
 - `POST /api/v1/segmentations`;
 - `GET /api/v1/pci/regions`;
 - `POST /api/v1/pci/calculate`.
 
-JPEG e PNG estáticos são processados somente em memória. A aplicação não
-persiste imagens, máscaras, prompts ou resultados nesses endpoints. O uso é experimental e não
-se destina a diagnóstico autônomo.
+Nessas rotas, JPEG e PNG estáticos são processados somente em memória. A
+aplicação não persiste imagens, máscaras, prompts ou resultados nesses endpoints.
+
+Rotas persistidas (exigem `DATABASE_URL`; veja o
+[guia do ciclo de vida](../docs/experiment_lifecycle_api.md)):
+
+- `POST /api/v1/cases`;
+- `POST /api/v1/cases/{case_id}/images`;
+- `GET /api/v1/images/{image_id}/content`;
+- `POST /api/v1/images/{image_id}/evaluations`;
+- `GET /api/v1/evaluations/{evaluation_id}`;
+- `POST /api/v1/evaluations/{evaluation_id}/segmentations`;
+- `POST /api/v1/evaluations/{evaluation_id}/finalize`.
+
+O uso é experimental e não se destina a diagnóstico autônomo.
 
 ## API documentation
 
@@ -81,7 +106,10 @@ Para o desenvolvimento normal, execute na raiz do repositório:
 .\scripts\dev.ps1
 ```
 
-O script carrega `.env` no processo atual, usa `.venv\Scripts\python.exe`
+O script recusa execução fora da raiz do repositório e exige o `.env`. Ele
+carrega o `.env` no processo atual e, antes de iniciar o Docker, verifica que
+`SAM2_CHECKPOINT_PATH` está definido e aponta para um arquivo existente. Depois,
+usa `.venv\Scripts\python.exe`
 quando disponível (senão, `python` do PATH), inicia somente PostgreSQL com
 `docker compose up -d --wait postgres` e aplica as migrations existentes com
 `python -m alembic upgrade head`. Ele não cria migrations novas. O carregamento
@@ -102,11 +130,11 @@ manual descrita neste documento continua possível.
 ## Persistência experimental
 
 Execute na raiz do repositório. PostgreSQL roda no Docker; backend e SAM
-continuam no ambiente Python local com CUDA. Para acrescentar somente as
-dependências desta etapa ao ambiente existente:
+continuam no ambiente Python local com CUDA. As dependências de persistência
+(SQLAlchemy, Alembic e psycopg) já fazem parte de `backend/requirements.txt`;
+instale-o conforme os pré-requisitos do [README principal](../README.md#prerequisites).
 
 ```powershell
-python -m pip install "SQLAlchemy>=2.0,<2.1" "alembic>=1.13,<2" "psycopg[binary]>=3.1,<4"
 Copy-Item .env.example .env
 # Ajuste a senha no .env antes de iniciar.
 docker compose up -d postgres
@@ -126,7 +154,8 @@ execução; prefira caminho absoluto. A pasta padrão `storage/` é ignorada pel
 Git; qualquer pasta alternativa dentro do repositório também deve ser ignorada.
 
 O Compose inicia somente PostgreSQL por padrão. O serviço antigo de backend
-está no perfil `legacy-backend`; o caminho recomendado para SAM/CUDA segue
+está no perfil `legacy-backend`; é legado e não foi validado com o código
+atual. O caminho recomendado para SAM/CUDA segue
 sendo a execução local com um worker descrita acima.
 
 O modelo, decisões e exemplo de transação estão em

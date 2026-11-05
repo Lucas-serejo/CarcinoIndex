@@ -276,6 +276,10 @@ src/app/
       segmentation-workspace.component.ts / .html / .css / .spec.ts
       segmentation-canvas/
         segmentation-canvas.component.ts / .html / .css / .spec.ts
+  i18n/
+    language.service.ts
+    language.service.spec.ts
+    translations.ts
   app.component.ts / .html / .css / .spec.ts
   app.config.ts
 ```

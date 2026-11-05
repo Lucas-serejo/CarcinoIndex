@@ -41,7 +41,9 @@ uma máscara validada. A tentativa revisada fica vinculada ao julgamento humano
 `adequate` / `partially_adequate` / `inadequate`, sem aceite ou transformação em
 referência/ground truth. Região PCI e LS são fornecidos pelo especialista quando
 determináveis; nenhum deles é inferido pelo SAM. O fluxo
-não calcula PCI completo. Features e exportação de dataset não estão implementadas.
+não calcula PCI completo. Features não estão implementadas. A exportação de
+imagens/máscaras não está implementada; há exportação CSV somente leitura das
+avaliações finalizadas, descrita no [README do backend](../../backend/README.md).
 
 ## Uso da fundação
 

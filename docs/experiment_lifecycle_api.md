@@ -49,12 +49,31 @@ Evaluation returns `422` with `{"error":{"code":"invalid_segmentation_review","m
 The failed request leaves the draft unchanged. Existing finalized records without
 review fields remain readable with both fields null.
 
+### Error responses
+
+Every error uses the same JSON envelope, `{"error":{"code":"<code>","message":"<message>"}}`,
+with no stack traces, storage keys, or filesystem paths:
+
+- `422 request_validation_error` ("The request fields are invalid or incomplete.")
+  for any request that fails schema validation, including unknown JSON fields,
+  out-of-range values, and confidence supplied without LS. Endpoint-specific `422`
+  codes such as `invalid_prompt`, `invalid_segmentation_review`, or image
+  validation codes are described in the steps above and below.
+- `503 persistence_unavailable` when the API was started without `DATABASE_URL`
+  (no session factory or storage configured). The segmentation-attempt endpoint can
+  also return `503 model_unavailable` or `503 cuda_out_of_memory`.
+- `500` with a generic, endpoint-specific code (`case_creation_failed`,
+  `image_creation_failed`, `evaluation_creation_failed`, `finalization_failed`,
+  `segmentation_failed`, or `image_content_unavailable`) for unexpected failures.
+
 Finalization means the specialist finished the evaluation, explicitly decided whether
 LS is determinable, and supplied a qualitative judgment tied to a specific segmentation attempt. That judgment
 is not clinical validation, LS, SAM confidence, or ground truth. No mask is accepted,
 validated, or transformed into a reference. The specialist supplies PCI region and
 LS when determinable; neither is inferred by SAM. The workflow does not calculate the complete PCI or perform autonomous diagnosis.
-SAM `selected_score` retains only its internal quality/ranking meaning.
+SAM `selected_score` retains only its internal quality/ranking meaning: it is technical
+SAM metadata returned with each segmentation attempt (and persisted in its metadata),
+not clinical confidence. The specialist's confidence is `annotator_confidence`.
 
 The UI starts with no region/LS answer and requires a numeric choice or the explicit
 “Could not determine” option. Only the latter becomes null in the request. The

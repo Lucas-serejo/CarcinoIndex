@@ -1,8 +1,9 @@
 # Pendência científica — protocolo físico de LS
 
-A M3 armazena exclusivamente o LS manual 0, 1, 2 ou 3 informado pelo usuário.
-Ela não converte área em pixels para centímetros e não deriva LS da máscara
-produzida pelo SAM 2.
+O CarcinoIndex armazena exclusivamente o LS manual informado pelo usuário: 0, 1,
+2 ou 3, ou NULL quando o especialista indica que o LS não pode ser determinado.
+O sistema não converte área em pixels para centímetros e não deriva LS da
+máscara produzida pelo SAM 2.
 
 Antes de descrever limites físicos no TCC ou automatizar a classificação, os
 critérios de tamanho adotados pelo projeto precisam ser homologados com
