@@ -1,5 +1,5 @@
 **Idioma:** [English](experiment_persistence.md) · Português
-<!-- synced with experiment_persistence.md @ 6edd3d5 -->
+<!-- synced with experiment_persistence.md @ 55b1b37 -->
 
 # Fundação de persistência experimental
 

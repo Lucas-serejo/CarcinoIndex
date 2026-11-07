@@ -1,5 +1,5 @@
 **Idioma:** [English](pci_protocol_pending_validation.md) · Português
-<!-- synced with pci_protocol_pending_validation.md @ 6edd3d5 -->
+<!-- synced with pci_protocol_pending_validation.md @ 55b1b37 -->
 
 # Pendência científica — protocolo físico de LS
 

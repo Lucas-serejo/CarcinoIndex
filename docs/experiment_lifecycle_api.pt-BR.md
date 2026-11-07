@@ -1,5 +1,5 @@
 **Idioma:** [English](experiment_lifecycle_api.md) · Português
-<!-- synced with experiment_lifecycle_api.md @ 6edd3d5 -->
+<!-- synced with experiment_lifecycle_api.md @ 55b1b37 -->
 
 # Ciclo de vida do experimento no Swagger
 

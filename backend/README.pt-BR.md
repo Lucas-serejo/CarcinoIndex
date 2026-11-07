@@ -1,5 +1,5 @@
 **Idioma:** [English](README.md) · Português
-<!-- synced with README.md @ 6edd3d5 -->
+<!-- synced with README.md @ 55b1b37 -->
 
 # Backend do CarcinoIndex
 

@@ -1,5 +1,5 @@
 **Idioma:** [English](sam2_windows_setup.md) · Português
-<!-- synced with sam2_windows_setup.md @ 6edd3d5 -->
+<!-- synced with sam2_windows_setup.md @ 55b1b37 -->
 
 # M1 — SAM 2.1 Hiera Small em Windows nativo
 

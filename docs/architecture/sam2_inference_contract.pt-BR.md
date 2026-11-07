@@ -1,5 +1,5 @@
 **Idioma:** [English](sam2_inference_contract.md) · Português
-<!-- synced with sam2_inference_contract.md @ 6edd3d5 -->
+<!-- synced with sam2_inference_contract.md @ 55b1b37 -->
 
 # Contrato de inferência do SAM 2.1 na API M3
 
