@@ -8,8 +8,8 @@ carcinomatosis. Its current focus is SAM 2.1 Hiera Small with specialist prompts
 
 The system does not autonomously discover where a lesion is. The specialist
 indicates the clinical object of interest; SAM turns that prompt into a
-segmentation mask for subsequent quantitative research. Clinical lesion score
-(LS) is supplied by the specialist and is never inferred by SAM.
+segmentation mask for subsequent quantitative research. The Lesion Size (LS)
+score is supplied by the specialist and is never inferred by SAM.
 
 Documentation is available in English and Portuguese; the thesis is written in
 Portuguese.
@@ -43,9 +43,10 @@ SAM mask into a reference mask or establish any of these mask states.
 SAM's `selected_score` is an internal predicted quality/ranking score,
 not clinical confidence.
 
-For the planned Experiment B, the implemented qualitative categories are `adequate`, `partially_adequate`, and `inadequate`; the broader study
-protocol remains pending validation. Manual mask correction or reference-mask creation is
-not required by the minimum current TCC protocol.
+The implemented qualitative categories are `adequate`, `partially_adequate`,
+and `inadequate`; the broader protocol for the planned Experiment B remains
+pending validation. Manual mask correction or reference-mask creation is not
+required by the minimum current TCC protocol.
 
 Automatic feature-based LS modelling is outside the current TCC scope and is not
 implemented. No classifier exists, and no features are computed or persisted by
@@ -166,9 +167,9 @@ Run backend commands from the repository root.
   production build, and F1-F4 behavior.
 - [Experiment lifecycle API](docs/experiment_lifecycle_api.md): create and retrieve
   resources, record segmentation attempts, and finalize an Evaluation.
-- [Experiment B CSV export](backend/README.md#exportação-do-experimento-b-csv):
+- [Experiment B CSV export](backend/README.md#experiment-b-csv-export):
   read-only `python scripts/export_experiment_b.py`, one row per finalized Evaluation.
-- [Local experiment data reset](backend/README.md#reset-dos-dados-experimentais-locais):
+- [Local experiment data reset](backend/README.md#local-experiment-data-reset):
   dry-run by default; `--execute --confirm <database>` clears experiment tables and managed storage.
 - [Persistence architecture](docs/architecture/experiment_persistence.md): data
   model, transaction boundaries, and storage limitations.

@@ -1,5 +1,5 @@
 **Idioma:** [English](README.md) · Português
-<!-- synced with README.md @ d88deef -->
+<!-- synced with README.md @ 6edd3d5 -->
 
 # Análise quantitativa ENID
 
@@ -140,7 +140,7 @@ nenhum caso é rotulado como clinicamente bom ou ruim.
 ## Baseline de caixa preenchida e ICs por bootstrap agrupado
 
 Um comando separado, somente em CPU, mede quanto o SAM acrescenta além do seu
-próprio prompt. A caixa delimitadora XYWH oracle é rasterizada como o polígono
+próprio prompt. A caixa delimitadora XYWH oráculo é rasterizada como o polígono
 retangular `[x,y, x+w,y, x+w,y+h, x,y+h]`, com a mesma convenção do pycocotools
 usada na referência (`frPyObjects -> merge -> decode`), e comparada com a máscara
 de referência canônica usando o `overlap_metrics()` existente. Dice/IoU do SAM
@@ -259,7 +259,7 @@ ordem crescente de ID. Os resultados selecionados de IDs posteriores ficam em
 cache até a sua vez na ordem global de renderização. As imagens têm as dimensões
 conferidas e são convertidas para RGB uint8 sem redimensionamento. Os polígonos
 canônicos fornecem as máscaras de referência; `annots/*.png` nunca é usado. A
-caixa delimitadora XYWH oracle/de referência é convertida para XYXY;
+caixa delimitadora XYWH oráculo/de referência é convertida para XYXY;
 `multimask_output=True` e exatamente `result.selected_mask` preservam a seleção
 pelo maior escore do SAM. A sobreposição com a referência nunca escolhe um
 candidato do SAM. Nenhum pós-processamento é aplicado.
@@ -304,7 +304,7 @@ pesquisa, nunca entradas do repositório. Não versione esses artefatos nem
 checkpoints.
 
 Os limites científicos permanecem: o ENID retrata lesões de endometriose, **não
-carcinomatose peritoneal**. A localização continua derivada do oracle/da
+carcinomatose peritoneal**. A localização continua derivada do oráculo/da
 referência, não é detecção autônoma. As imagens geradas não são validação
 clínica. Extremos de razão de área, sozinhos, não provam subsegmentação nem
 supersegmentação. A inspeção visual pode descrever padrões aparentes de erro, mas
@@ -416,7 +416,7 @@ exatamente como informado em `--dataset-root`; por isso, use um caminho relativo
 ## Limites de interpretação
 
 - O ENID contém lesões de endometriose, não carcinomatose peritoneal.
-- A caixa delimitadora é derivada da referência/oracle: trata-se de segmentação
+- A caixa delimitadora é derivada da referência/oráculo: trata-se de segmentação
   com localização conhecida, não de detecção de lesões.
 - O escore selecionado é uma estimativa interna de qualidade/ranqueamento do SAM,
   não confiança clínica.

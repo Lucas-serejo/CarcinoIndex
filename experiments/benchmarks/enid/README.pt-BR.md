@@ -1,5 +1,5 @@
 **Idioma:** [English](README.md) · Português
-<!-- synced with README.md @ d88deef -->
+<!-- synced with README.md @ 6edd3d5 -->
 
 # Experimento A — segmentação guiada ENID
 
@@ -8,7 +8,7 @@ referência, quão semelhante é a máscara do SAM 2.1 Hiera Small à segmentaç
 de referência disponibilizada pelo ENID?
 
 ENID é um proxy laparoscópico de lesões de **endometriose**, não carcinomatose
-peritoneal. A caixa delimitadora oficial é um **oracle/control prompt**: este
+peritoneal. A caixa delimitadora oficial é um **prompt oráculo/de controle**: este
 experimento mede segmentação com localização conhecida, não detecção. Não há
 treinamento, fine-tuning, classificação LS, PCI ou alegação de validação clínica.
 
@@ -42,7 +42,7 @@ treinamento, fine-tuning, classificação LS, PCI ou alegação de validação c
 ## Execução
 
 Instale `backend/requirements.txt` e configure o SAM/checkpoint local conforme
-[o guia existente](../../../docs/methodology/sam2_windows_setup.md).
+[o guia existente](../../../docs/methodology/sam2_windows_setup.pt-BR.md).
 
 Estrutura esperada dos diretórios passados em `--dataset-root` e `--split-root`
 (os frames são lidos de `frames/` pelo `file_name` do COCO canônico):

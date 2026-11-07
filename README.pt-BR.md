@@ -1,5 +1,5 @@
 **Idioma:** [English](README.md) · Português
-<!-- synced with README.md @ d88deef -->
+<!-- synced with README.md @ 6edd3d5 -->
 
 # CarcinoIndex
 
@@ -10,8 +10,8 @@ Hiera Small com prompts fornecidos pelo especialista.
 
 O sistema não descobre de forma autônoma onde está uma lesão. O especialista
 indica o objeto clínico de interesse; o SAM transforma esse prompt em uma máscara
-de segmentação para a pesquisa quantitativa subsequente. O escore de lesão
-clínico (LS) é fornecido pelo especialista e nunca é inferido pelo SAM.
+de segmentação para a pesquisa quantitativa subsequente. O escore Lesion Size
+(LS) é fornecido pelo especialista e nunca é inferido pelo SAM.
 
 A documentação está disponível em inglês e português; a monografia é escrita em
 português.
@@ -46,9 +46,9 @@ uma máscara do SAM em máscara de referência nem estabelecem nenhum desses
 estados. O `selected_score` do SAM é um escore interno previsto de
 qualidade/ranqueamento, não confiança clínica.
 
-Para o Experimento B planejado, as categorias qualitativas implementadas são
-`adequate`, `partially_adequate` e `inadequate`; o protocolo mais amplo do estudo
-continua pendente de validação. Correção manual de máscara ou criação de máscara
+As categorias qualitativas implementadas são `adequate`, `partially_adequate` e
+`inadequate`; o protocolo mais amplo do Experimento B planejado continua
+pendente de validação. Correção manual de máscara ou criação de máscara
 de referência não é exigida pelo protocolo mínimo atual do TCC.
 
 A modelagem automática de LS baseada em features está fora do escopo atual do TCC
@@ -122,7 +122,7 @@ enviadas. Os bytes armazenados são iguais aos bytes enviados e validados, e o
 SHA-256 é calculado sobre esses bytes exatos. Rejeitar transformações de exibição
 preserva a concordância entre as coordenadas do especialista no navegador e os
 pixels fornecidos ao SAM. Veja o
-[contrato de validação e armazenamento de imagens](docs/experiment_lifecycle_api.md#image-storage-and-transactions).
+[contrato de validação e armazenamento de imagens](docs/experiment_lifecycle_api.pt-BR.md#armazenamento-de-imagens-e-transações).
 
 ## Estrutura do repositório
 
@@ -154,7 +154,7 @@ offline e os outputs locais (checkpoints não são versionados).
 ## Pré-requisitos
 
 O ambiente validado está descrito passo a passo no
-[guia de configuração do SAM 2.1 no Windows](docs/methodology/sam2_windows_setup.md).
+[guia de configuração do SAM 2.1 no Windows](docs/methodology/sam2_windows_setup.pt-BR.md).
 Em resumo, a partir da raiz do repositório:
 
 1. Python 3.11 (a versão usada no CI) em um ambiente virtual, como `.venv`.
@@ -178,32 +178,32 @@ Em resumo, a partir da raiz do repositório:
 
 Nenhum checkpoint é baixado automaticamente. Imagens clínicas e checkpoints devem
 ficar fora do controle de versão. O frontend exige ainda o Node.js 24 (veja o
-[README do frontend](frontend/README.md)).
+[README do frontend](frontend/README.pt-BR.md)).
 
 ## Desenvolvimento e documentação técnica
 
 Execute os comandos do backend a partir da raiz do repositório.
 
-- [Configuração e execução do backend](backend/README.md): PostgreSQL, migrations
+- [Configuração e execução do backend](backend/README.pt-BR.md): PostgreSQL, migrations
   Alembic existentes, armazenamento local, configurações SAM/CUDA e o script de
   desenvolvimento no Windows.
-- [Configuração e fluxo do frontend](frontend/README.md): desenvolvimento Angular,
+- [Configuração e fluxo do frontend](frontend/README.pt-BR.md): desenvolvimento Angular,
   testes, build de produção e comportamento F1-F4.
-- [API do ciclo de vida do experimento](docs/experiment_lifecycle_api.md): criar e
+- [API do ciclo de vida do experimento](docs/experiment_lifecycle_api.pt-BR.md): criar e
   recuperar recursos, registrar tentativas de segmentação e finalizar uma Evaluation.
-- [Exportação CSV do Experimento B](backend/README.md#exportação-do-experimento-b-csv):
+- [Exportação CSV do Experimento B](backend/README.pt-BR.md#exportação-do-experimento-b-csv):
   `python scripts/export_experiment_b.py`, somente leitura, uma linha por
   Evaluation finalizada.
-- [Reset dos dados experimentais locais](backend/README.md#reset-dos-dados-experimentais-locais):
+- [Reset dos dados experimentais locais](backend/README.pt-BR.md#reset-dos-dados-experimentais-locais):
   dry-run por padrão; `--execute --confirm <database>` limpa as tabelas do
   experimento e o armazenamento gerenciado.
-- [Arquitetura de persistência](docs/architecture/experiment_persistence.md):
+- [Arquitetura de persistência](docs/architecture/experiment_persistence.pt-BR.md):
   modelo de dados, limites de transação e limitações do armazenamento.
-- [Contrato de inferência do SAM](docs/architecture/sam2_inference_contract.md):
+- [Contrato de inferência do SAM](docs/architecture/sam2_inference_contract.pt-BR.md):
   uma instância do modelo, um worker e inferência serializada.
-- [Configuração do SAM 2.1 no Windows](docs/methodology/sam2_windows_setup.md):
+- [Configuração do SAM 2.1 no Windows](docs/methodology/sam2_windows_setup.pt-BR.md):
   ambiente Python/PyTorch/CUDA validado, instalação do SAM 2, checkpoint e SHA-256.
-- [Protocolo de LS pendente de validação](docs/methodology/pci_protocol_pending_validation.md):
+- [Protocolo de LS pendente de validação](docs/methodology/pci_protocol_pending_validation.pt-BR.md):
   armazenamento manual do LS e os identificadores de protocolo usados até a
   validação dos critérios de tamanho.
 - [Benchmark de segmentação ENID](experiments/benchmarks/enid/README.pt-BR.md):

@@ -1,3 +1,5 @@
+**Language:** English · [Português](experiment_lifecycle_api.pt-BR.md)
+
 # Experiment lifecycle in Swagger
 
 Start the configured API with PostgreSQL, Alembic migrations through `0003_optional_clinical_context`, local
@@ -8,8 +10,8 @@ All paths below use the default `/api/v1` prefix.
    Copy `case_id` from the `201` response. Codes are pseudonymous identifiers,
    trimmed, nonblank, and limited to 128 characters. Duplicates are allowed.
    Supply no names, medical record numbers, CPF, email, or other personal data.
-   The legacy field name `anonymous_patient_code` is unchanged. In Experiment B,
-   it is a pseudonymous experimental case identifier and establishes no patient
+   The legacy field name `anonymous_patient_code` is unchanged. For the planned
+   Experiment B, it is a pseudonymous experimental case identifier and establishes no patient
    identity or relationship between images. Each photograph may be a new case.
 2. `POST /cases/{case_id}/images`: select a JPEG or PNG in the multipart `image`
    field. Copy `image_id` from the `201` response. The response includes `case_id`,
