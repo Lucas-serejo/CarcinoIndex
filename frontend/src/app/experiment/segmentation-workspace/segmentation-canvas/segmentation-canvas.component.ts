@@ -133,6 +133,11 @@ export class SegmentationCanvasComponent implements OnChanges {
     if (drag?.target.hasPointerCapture(drag.id)) drag.target.releasePointerCapture(drag.id);
   }
 
+  /**
+   * Maps a pointer position to original-image pixel coordinates, clamped to the image.
+   * Uses the rendered bounds measured at each event, so responsive resizing does not
+   * change the stored coordinates: `x = (clientX - rect.left) * naturalWidth / rect.width`.
+   */
   private point(event: PointerEvent, target: SVGSVGElement): { x: number; y: number } | null {
     const rect = target.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return null;

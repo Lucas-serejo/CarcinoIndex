@@ -1,4 +1,8 @@
-"""Pydantic contracts exposed by the M3 HTTP API."""
+"""Pydantic contracts for health, PCI and segmentation responses.
+
+Experimental lifecycle contracts (cases, images, evaluations) live in
+``backend.app.schemas.experiment``.
+"""
 
 from __future__ import annotations
 

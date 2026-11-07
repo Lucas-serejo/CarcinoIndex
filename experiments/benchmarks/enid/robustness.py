@@ -136,6 +136,15 @@ def run_robustness(*, dataset_root: Path, split_root: Path, checkpoint: Path, ou
                    dtype: str = "float32", model_config: str = DEFAULT_MODEL_CONFIG,
                    conditions=CONDITIONS, seed: int = SEED, expected_checkpoint_sha256: str | None = None,
                    segmenter_factory=SAM2Segmenter) -> dict:
+    """Run every condition in ``conditions`` for each selected annotation.
+
+    All prompts are built and validated before the model loads; a mismatching
+    ``expected_checkpoint_sha256`` aborts before reading the dataset. Per image
+    there is one ``set_image``; each row also records the Dice/IoU of the filled
+    prompt box. ``output`` must be new or empty and outside the input directories.
+    Writes ``results_long.csv``, ``image_timing.csv`` and ``summary.json`` and
+    returns the summary.
+    """
     started = time.perf_counter()
     raw_root = Path(__file__).resolve().parents[3] / "datasets" / "raw"
     for protected in (dataset_root, split_root, raw_root):

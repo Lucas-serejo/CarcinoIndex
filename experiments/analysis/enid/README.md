@@ -1,71 +1,26 @@
+**Language:** English · [Português](README.pt-BR.md)
+
 # ENID quantitative analysis
 
-This CPU-only layer reads the `results.csv` from completed Experiment A. It
-computes descriptive and exploratory annotation-level results for the TCC
-results chapter. It does not load SAM, a checkpoint, images, COCO annotations,
-the database, API, or frontend. No benchmark rerun or overlays are performed.
-Only the existing numpy, pandas, and matplotlib dependencies are used.
+This directory holds the analysis and figure tools that run on the outputs of
+completed Experiment A (see `experiments/benchmarks/enid/README.md`). They
+compute descriptive and exploratory annotation-level results for the TCC
+results chapter.
 
-## Rendering language (TCC figures)
+| Command | Reads | SAM / GPU |
+| --- | --- | --- |
+| `scripts/analyze_enid_results.py` ([Run](#run)) | `results.csv` only | No |
+| `scripts/analyze_enid_box_baseline.py` ([baseline](#filled-bbox-baseline-and-cluster-bootstrap-cis)) | `results.csv` + canonical COCO/splits | No |
+| `scripts/analyze_enid_box_robustness.py` ([robustness](#box-prompt-robustness-analysis)) | `results_long.csv` + `image_timing.csv` | No |
+| `scripts/render_enid_qualitative_cases.py` ([qualitative](#qualitative-inspection-of-selected-extremes)) | `results.csv`, `extreme_cases.csv`, COCO, frames, checkpoint | **Yes** |
+| `scripts/localize_enid_qualitative.py` ([localization](#rendering-language-tcc-figures)) | A completed qualitative run, COCO, frames | No |
+| `scripts/render_enid_examples.py` ([examples](#illustrative-enid-examples-figure)) | COCO/splits and frames | No |
 
-The quantitative command accepts `--language en` (default) or `--language pt-BR`.
-Portuguese figures are intended for the monograph. Language changes visible text
-only: numerical artifacts come from the same authoritative `results.csv`, with
-unchanged statistics, correlations, bins and deterministic selection. Original
-outputs are never overwritten. No experimental data or protocol is changed.
-
-```powershell
-python scripts/analyze_enid_results.py `
-  --results experiments/outputs/enid-full-01/results.csv `
-  --output experiments/outputs/enid-analysis-ptbr `
-  --language pt-BR
-```
-
-This produces `dice_distribution.png`, `iou_distribution.png`,
-`selected_score_vs_dice.png` and `reference_area_vs_dice.png`, plus the unchanged
-CSV/JSON summaries. The original English layout is resolved at 180 DPI before
-translating text, preserving axes geometry and the existing figure size/style.
-
-For a **completed qualitative run**, use the separate read-only command below.
-It does not import or execute SAM, require a checkpoint, or recreate predictions.
-The original `render_cases()` and experimental CLI retain their existing behavior.
-
-```powershell
-python scripts/localize_enid_qualitative.py `
-  --dataset-root datasets/raw/enid/ENID_v1.0_dataset `
-  --split-root datasets/raw/enid_split/ENID_v1.0_dataset `
-  --results experiments/outputs/enid-full-01/results.csv `
-  --cases experiments/outputs/enid-analysis-01/extreme_cases.csv `
-  --source experiments/outputs/enid-qualitative-01 `
-  --output experiments/outputs/enid-qualitative-ptbr `
-  --language pt-BR
-```
-
-`--language en` is also supported; this separate command defaults to `pt-BR`.
-Its output directory must not exist and must be outside the source, dataset and
-split directories. Before creating it, the command checks the completed source
-manifest, protocol, recorded input hashes, deterministic IDs/reasons/ranks and
-cases ordering; canonical identity/bbox; binary PNG masks and dimensions; exact
-reference-mask equality with COCO; exact areas and selected index; and Dice/IoU
-agreement within the existing `1e-6` tolerance. Benchmark score/index values must
-match the recorded cases and are never inferred from masks. Optional bbox fields
-in the results CSV are compared numerically without changing the input data.
-The completed 358-annotation/160-image run retains exactly its 16 unique selected
-cases. Synthetic subsets remain supported using the same selection validation.
-
-The renderer uses verified in-memory snapshots of original ENID images and saved
-masks, canonical bbox, authoritative metrics, the same colors, ALPHA, 2x2 layout,
-12x8 figure, 180 DPI and full-frame panel limits. It writes only localized
-`cases/annotation_XXXXXX/comparison.png` and a **new** provenance manifest. That
-manifest records the source directory basename (no absolute path), language,
-`mode: render-only`, `inference_executed: false`, ordered IDs, input/mask/image
-SHA-256 hashes and completion state. The hashes are the provenance record. No source CSV, JSON, mask or original comparison is modified
-or copied over. Render failures leave an incomplete new manifest. Generated
-artifacts remain ignored under `experiments/outputs/`.
-
-The source scientific manifest does not contain frame/mask hashes. These files
-are checked against the canonical geometry and scientific consistency contract;
-the new provenance records their exact current bytes for future verification.
+`analyze_enid_results.py` is CPU-only and reads only the `results.csv` from
+completed Experiment A. It does not load SAM, a checkpoint, images, COCO
+annotations, the database, API, or frontend. No benchmark rerun or overlays are
+performed. Only the existing numpy, pandas, and matplotlib dependencies are used.
+The other commands have the inputs listed above and described in their sections.
 
 ## Run
 
@@ -124,8 +79,10 @@ in the traditional trained-model sense.
 area with Dice. Pearson is the linear correlation on the raw values. Spearman
 is Pearson on average ranks, including tied values, without SciPy. Correlations
 are `null` in JSON and labelled undefined in figures when fewer than two rows
-or either variable is constant. No p-values, significance tests, confidence
-intervals, regression, or causal interpretations are produced.
+or either variable is constant. For these exploratory correlations, no p-values,
+significance tests, confidence intervals, regression, or causal interpretations
+are produced. The separate filled-bbox baseline and box-prompt robustness
+analyses below do report cluster-bootstrap confidence intervals for their means.
 
 | File | Definition |
 | --- | --- |
@@ -181,7 +138,7 @@ annotation (`load_samples`) in identity, bbox and reference area, or the run
 aborts before writing.
 
 ```powershell
-.venv/Scripts/python.exe scripts/analyze_enid_box_baseline.py `
+python scripts/analyze_enid_box_baseline.py `
   --dataset-root datasets/raw/enid/ENID_v1.0_dataset `
   --split-root datasets/raw/enid_split/ENID_v1.0_dataset `
   --results experiments/outputs/enid-full-01/results.csv `
@@ -193,7 +150,7 @@ aborts before writing.
 | File | Definition |
 | --- | --- |
 | `box_baseline.csv` | One row per annotation: identity, bbox, reference/box areas, reference pixels outside the rasterized box, `fill_ratio = reference_area / box_area`, SAM `dice`/`iou`, `box_dice`/`box_iou`, `dice_gain = dice - box_dice`, `iou_gain = iou - box_iou`. |
-| `box_baseline_summary.json` | Means/medians, count and % with `dice_gain > 0`, % with `box_dice >= 0.80`, reference pixels outside the box, exploratory fill-ratio terciles, bootstrap CIs, SHA-256 of results and COCO/split JSONs, package versions with the `pycocotools` module path, and conventions. |
+| `box_baseline_summary.json` | Means/medians, count and % with `dice_gain > 0`, % with `box_dice >= 0.80`, reference pixels outside the box, exploratory fill-ratio terciles, bootstrap CIs, SHA-256 of results and COCO/split JSONs, package versions together with the path of the `pycocotools` module in the execution environment, and conventions. |
 | `dice_gain_vs_fill_ratio.png` | Exploratory scatter of Dice gain vs. fill ratio, localized with `localize_figure` plus figure-specific pt-BR strings. |
 
 `cluster_bootstrap()` gives 95% percentile CIs for the mean of `dice`, `iou`,
@@ -217,12 +174,15 @@ same annotation set. It reuses `cluster_bootstrap`, `SEED`, `N_RESAMPLES`,
 `LEVEL` and the tercile labels from `box_baseline.py`.
 
 ```powershell
-.venv/Scripts/python.exe scripts/analyze_enid_box_robustness.py `
+python scripts/analyze_enid_box_robustness.py `
   --results experiments/outputs/enid-box-robustness/results_long.csv `
   --output experiments/outputs/enid-box-robustness-analysis `
   --language pt-BR `
   --expected-sha256 5fc5d15aab2f3eee4366ecfd654ec76b405b3ecba61c8c35e715984c56cefd81
 ```
+
+`--timing` is optional and points to `image_timing.csv`; by default the file is
+read from the same directory as `--results`.
 
 | File | Definition |
 | --- | --- |
@@ -230,38 +190,12 @@ same annotation set. It reuses `cluster_bootstrap`, `SEED`, `N_RESAMPLES`,
 | `robustness_paired.csv` | Per non-ref condition: paired Dice difference vs. ref (computed per annotation, joined on `annotation_id`, before the bootstrap) with CIs; better/equal/worse counts; for jitter10/expand10/expand20 the box and SAM losses vs. ref and the descriptive absorbed fraction `1 − ΔSAM/Δbox` on means (no CI). |
 | `normalized_gain_by_tercile.csv` | Exploratory, ref only: `(dice − box) / (1 − box)` (undefined when box Dice is 1) by fill-ratio tercile, with median fill ratio, raw and normalized gain, and % SAM > box. |
 | `timing_summary.csv` | Median, P5, P95 of embedding time (per image) and prediction time (per condition and overall). Times are comparable only within the same execution. |
-| `robustness_summary.json` | All of the above plus input hashes, seed, resamples, conventions and package versions. |
+| `robustness_summary.json` | All of the above plus input hashes, seed, resamples, conventions and package versions (including the path of the `pycocotools` module in the execution environment). |
 | `robustness_dice_by_condition.png` | Mean SAM Dice and mean filled prompt-box Dice for ref, jitter10, expand10, expand20 with group_id 95% CIs; distinct markers for grayscale printing; ref_single excluded. |
 
 Each condition is bootstrapped separately with the same seed over the same
 annotations and clusters, so all conditions share one resampling matrix per
 cluster type. pt-BR labels say "caixa delimitadora", never "bbox".
-
-## Interpretation limits
-
-- ENID contains endometriosis lesions, not peritoneal carcinomatosis.
-- The bbox is reference-derived/oracle: this is segmentation with known
-  localization, not lesion detection.
-- Selected score is an internal SAM quality/ranking estimate, not clinical
-  confidence.
-- One annotation is the analysis unit. Multiple annotations can belong to one
-  image, and multiple images can share a group ID. Group ID clinical semantics
-  are not established and it must not be interpreted as patient ID.
-- The completed run's 358 annotations must not be described as 358 independent
-  patients. This tool does not assume annotation independence for inference.
-- Correlations are exploratory and do not establish causality. No clinical
-  adequacy threshold, clinical LS prediction, automatic PCI, or clinical
-  validation is claimed.
-
-## Synthetic verification
-
-```powershell
-python -m pytest tests/experiments/test_enid_analysis.py -q
-python -m pytest -q -ra -m "not sam2_integration and not sam2_api_integration"
-```
-
-Tests use temporary synthetic CSV files and headless figures; no real ENID or
-benchmark output is required.
 
 ## Qualitative inspection of selected extremes
 
@@ -356,9 +290,121 @@ causality. Selected score remains an internal SAM ranking/quality estimate,
 not clinical confidence. This protocol makes no conclusions about real images
 and does not prescribe a thesis interpretation or final figure subset.
 
+## Rendering language (TCC figures)
+
+The quantitative command accepts `--language en` (default) or `--language pt-BR`
+(the baseline and robustness commands above accept the same option).
+Portuguese figures are intended for the monograph. Language changes visible text
+only: numerical artifacts come from the same authoritative `results.csv`, with
+unchanged statistics, correlations, bins and deterministic selection. Original
+outputs are never overwritten. No experimental data or protocol is changed.
+
 ```powershell
+python scripts/analyze_enid_results.py `
+  --results experiments/outputs/enid-full-01/results.csv `
+  --output experiments/outputs/enid-analysis-ptbr `
+  --language pt-BR
+```
+
+This produces `dice_distribution.png`, `iou_distribution.png`,
+`selected_score_vs_dice.png` and `reference_area_vs_dice.png`, plus the unchanged
+CSV/JSON summaries. The original English layout is resolved at 180 DPI before
+translating text, preserving axes geometry and the existing figure size/style.
+
+For a **completed qualitative run**, use the separate read-only command below.
+It does not import or execute SAM, require a checkpoint, or recreate predictions.
+The original `render_cases()` and experimental CLI retain their existing behavior.
+
+```powershell
+python scripts/localize_enid_qualitative.py `
+  --dataset-root datasets/raw/enid/ENID_v1.0_dataset `
+  --split-root datasets/raw/enid_split/ENID_v1.0_dataset `
+  --results experiments/outputs/enid-full-01/results.csv `
+  --cases experiments/outputs/enid-analysis-01/extreme_cases.csv `
+  --source experiments/outputs/enid-qualitative-01 `
+  --output experiments/outputs/enid-qualitative-ptbr `
+  --language pt-BR
+```
+
+`--language en` is also supported; this separate command defaults to `pt-BR`.
+Its output directory must not exist and must be outside the source, dataset and
+split directories. Before creating it, the command checks the completed source
+manifest, protocol, recorded input hashes, deterministic IDs/reasons/ranks and
+cases ordering; canonical identity/bbox; binary PNG masks and dimensions; exact
+reference-mask equality with COCO; exact areas and selected index; and Dice/IoU
+agreement within the existing `1e-6` tolerance. Benchmark score/index values must
+match the recorded cases and are never inferred from masks. Optional bbox fields
+in the results CSV are compared numerically without changing the input data.
+The completed 358-annotation/160-image run retains exactly its 16 unique selected
+cases. Synthetic subsets remain supported using the same selection validation.
+
+The renderer uses verified in-memory snapshots of original ENID images and saved
+masks, canonical bbox, authoritative metrics, the same colors, ALPHA, 2x2 layout,
+12x8 figure, 180 DPI and full-frame panel limits. It writes only localized
+`cases/annotation_XXXXXX/comparison.png` and a **new** provenance manifest. That
+manifest records the source directory basename (no absolute path), language,
+`mode: render-only`, `inference_executed: false`, ordered IDs, input/mask/image
+SHA-256 hashes and completion state. The hashes are the provenance record. No source CSV, JSON, mask or original comparison is modified
+or copied over. Render failures leave an incomplete new manifest. Generated
+artifacts remain ignored under `experiments/outputs/`.
+
+The source scientific manifest does not contain frame/mask hashes. These files
+are checked against the canonical geometry and scientific consistency contract;
+the new provenance records their exact current bytes for future verification.
+
+## Illustrative ENID examples figure
+
+`scripts/render_enid_examples.py` draws a 2x2 illustrative figure of ENID
+reference annotations on CPU, without SAM, a checkpoint or `results.csv`. Each
+panel shows a frame with the reference segmentation contour (rasterized with
+`reference_mask`, no fill) and the reference bbox of each annotation, one
+color per annotation. Panel titles and the legend are in Portuguese.
+
+```powershell
+python scripts/render_enid_examples.py `
+  --dataset-root datasets/raw/enid/ENID_v1.0_dataset `
+  --split-root datasets/raw/enid_split/ENID_v1.0_dataset `
+  --output experiments/outputs/enid-examples-01
+```
+
+Images are chosen by a fixed deterministic rule recorded in the manifest: two
+images with exactly one annotation whose reference area is closest to the median,
+then two images with three to five annotations whose median area is closest to
+the median of those values, with distinct `group_id` across panels and ties
+broken by the smaller `image_id`. The command aborts unless the rule selects
+exactly `image_id` 72, 136, 79 and 32 (panels A–D). The output directory must not
+exist; an existing directory is refused. It writes `enid_examples.png` (200 DPI)
+and `manifest.json`, which records the selection rule and statistics, the panels
+(image and annotation IDs, `group_id`, split, reference areas, colors), style,
+and the SHA-256 of `coco.json` and of the figure. The manifest also stores the
+`coco.json` path exactly as given in `--dataset-root`, so use a relative path.
+
+## Interpretation limits
+
+- ENID contains endometriosis lesions, not peritoneal carcinomatosis.
+- The bbox is reference-derived/oracle: this is segmentation with known
+  localization, not lesion detection.
+- Selected score is an internal SAM quality/ranking estimate, not clinical
+  confidence.
+- One annotation is the analysis unit. Multiple annotations can belong to one
+  image, and multiple images can share a group ID. Group ID clinical semantics
+  are not established and it must not be interpreted as patient ID.
+- The completed run's 358 annotations must not be described as 358 independent
+  patients. This tool does not assume annotation independence for inference.
+- Correlations are exploratory and do not establish causality. No clinical
+  adequacy threshold, clinical LS prediction, automatic PCI, or clinical
+  validation is claimed.
+
+## Synthetic verification
+
+```powershell
+python -m pytest tests/experiments/test_enid_analysis.py -q
+python -m pytest tests/experiments/test_enid_box_baseline.py -q
+python -m pytest tests/experiments/test_enid_robustness_analysis.py -q
 python -m pytest tests/experiments/test_enid_qualitative.py -q
 python -m pytest -q -ra -m "not sam2_integration and not sam2_api_integration"
 ```
 
+Tests use temporary synthetic CSV files, synthetic COCO fixtures and headless
+figures; no real ENID or benchmark output is required.
 CI should run only synthetic tests, never real ENID/SAM qualitative rendering.

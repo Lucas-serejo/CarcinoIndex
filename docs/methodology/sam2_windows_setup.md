@@ -1,70 +1,78 @@
-# M1 — SAM 2.1 Hiera Small em Windows nativo
+**Language:** English · [Português](sam2_windows_setup.pt-BR.md)
 
-## Objetivo e escopo
+# M1 — SAM 2.1 Hiera Small on native Windows
 
-Esta milestone verifica exclusivamente a viabilidade técnica do SAM 2.1
-Hiera Small no Windows nativo: ambiente isolado, CUDA, instalação do pacote
-oficial, carregamento do checkpoint e inferência em uma imagem sintética.
+> **Historical record (M1/M2).** This document preserves the validated
+> environment and the decisions of milestones M1 and M2. The integration of
+> SAM 2.1 into the API, described below as reserved for M3, has since been
+> implemented; the current behavior is in the
+> [SAM 2.1 inference contract](../architecture/sam2_inference_contract.md).
 
-O SAM 2.1 foi escolhido para substituir definitivamente o SAM original no
-CarcinoIndex. A M2 implementou o wrapper definitivo e atualizou o notebook,
-sem integrar o modelo ao FastAPI; essa integração permanece reservada à M3.
+## Objective and scope
 
-Nenhuma imagem clínica foi utilizada.
+This milestone verifies only the technical feasibility of SAM 2.1 Hiera Small
+on native Windows: isolated environment, CUDA, installation of the official
+package, checkpoint loading and inference on a synthetic image.
 
-## Ambiente validado
+SAM 2.1 was chosen to permanently replace the original SAM in CarcinoIndex. M2
+implemented the definitive wrapper and updated the notebook, without integrating
+the model into FastAPI; that integration remains reserved for M3.
 
-- Sistema: Windows x64, build 26200.
+No clinical image was used.
+
+## Validated environment
+
+- System: Windows x64, build 26200.
 - Python: CPython 3.11.4.
-- Ambiente virtual: `CarcinoIndex/.venv`.
+- Virtual environment: `CarcinoIndex/.venv`.
 - pip: 26.1.2.
 - PyTorch: 2.6.0+cu124.
 - torchvision: 0.21.0+cu124.
-- CUDA incluída na wheel: 12.4.
-- Driver NVIDIA: 596.49.
-- CUDA informada pelo driver: 13.2.
+- CUDA bundled in the wheel: 12.4.
+- NVIDIA driver: 596.49.
+- CUDA reported by the driver: 13.2.
 - GPU: NVIDIA GeForce RTX 3060 Laptop GPU.
-- VRAM detectada pelo PyTorch: 6.441.926.656 bytes.
+- VRAM detected by PyTorch: 6,441,926,656 bytes.
 - `torch.cuda.is_available()`: `True`.
 - `torch.cuda.is_bf16_supported()`: `True`.
 
-A versão CUDA mostrada pelo `nvidia-smi` representa a capacidade do driver.
-Ela não é a versão do runtime incluído na wheel do PyTorch. Não foi instalado
-CUDA Toolkit, NVCC ou Visual Studio Build Tools.
+The CUDA version shown by `nvidia-smi` reflects the driver's capability. It is
+not the version of the runtime bundled in the PyTorch wheel. No CUDA Toolkit,
+NVCC or Visual Studio Build Tools were installed.
 
-## Instalação do SAM 2
+## SAM 2 installation
 
-- Origem: `https://github.com/facebookresearch/sam2.git`.
-- Commit validado: `2b90b9f5ceec907a1c18123530e92e794ad901a4`.
-- Instalação: editável, a partir do clone oficial externo.
-- Pacote instalado: `SAM-2==1.0`.
-- Caminho lógico da configuração:
+- Source: `https://github.com/facebookresearch/sam2.git`.
+- Validated commit: `2b90b9f5ceec907a1c18123530e92e794ad901a4`.
+- Installation: editable, from the external official clone.
+- Installed package: `SAM-2==1.0`.
+- Logical config path:
   `configs/sam2.1/sam2.1_hiera_s.yaml`.
-- Extensão CUDA opcional: desativada com `SAM2_BUILD_CUDA=0`.
-- Verificação adicional: o módulo `sam2._C` não está presente.
-- Consequência: o pós-processamento opcional de pequenos buracos e
-  componentes isolados não é executado.
+- Optional CUDA extension: disabled with `SAM2_BUILD_CUDA=0`.
+- Additional check: the `sam2._C` module is not present.
+- Consequence: the optional post-processing of small holes and isolated
+  components is not executed.
 
-O código-fonte do SAM 2 e o checkpoint permanecem fora do CarcinoIndex, em um
-diretório irmão. O `backend/requirements.txt` não declara provisoriamente o
-SAM 2 porque esta milestone usa a instalação editável do clone oficial.
+The SAM 2 source code and the checkpoint stay outside CarcinoIndex, in a sibling
+directory. `backend/requirements.txt` provisionally does not declare SAM 2
+because this milestone uses the editable installation of the official clone.
 
 ## Checkpoint
 
-- Nome: `sam2.1_hiera_small.pt`.
-- Origem:
+- Name: `sam2.1_hiera_small.pt`.
+- Source:
   `https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_small.pt`.
-- Local: `sam2/checkpoints/sam2.1_hiera_small.pt`, no clone externo.
-- Tamanho: 184.416.285 bytes.
+- Location: `sam2/checkpoints/sam2.1_hiera_small.pt`, in the external clone.
+- Size: 184,416,285 bytes.
 - SHA-256:
   `6d1aa6f30de5c92224f8172114de081d104bbd23dd9dc5c58996f0cad5dc4d38`.
 
-O hash foi calculado localmente para reprodutibilidade. A documentação
-oficial consultada não publica um checksum esperado para comparação.
+The hash was computed locally for reproducibility. The official documentation
+consulted does not publish an expected checksum for comparison.
 
-## Comandos principais executados
+## Main commands executed
 
-Na raiz do CarcinoIndex:
+At the CarcinoIndex root:
 
 ```powershell
 $basePython = (Get-Command python).Source
@@ -82,13 +90,13 @@ $projectPython = (Resolve-Path .\.venv\Scripts\python.exe).Path
 & $projectPython -c "import torch, torchvision; assert torch.cuda.is_available(); x = torch.arange(16, device='cuda'); print(x.sum().item())"
 ```
 
-No diretório-pai do CarcinoIndex:
+In the parent directory of CarcinoIndex:
 
 ```powershell
 git clone https://github.com/facebookresearch/sam2.git sam2
 ```
 
-Na raiz do clone oficial:
+At the root of the official clone:
 
 ```powershell
 $env:SAM2_BUILD_CUDA = "0"
@@ -104,7 +112,7 @@ Get-FileHash `
   -Algorithm SHA256
 ```
 
-Validações e inferência, novamente na raiz do CarcinoIndex:
+Validation and inference, again at the CarcinoIndex root:
 
 ```powershell
 & $projectPython .\scripts\check_sam2_environment.py `
@@ -120,65 +128,65 @@ Validações e inferência, novamente na raiz do CarcinoIndex:
   --dtype fp32
 ```
 
-## Resultado da inferência FP32
+## FP32 inference result
 
-- Status: sucesso na primeira execução de inferência.
-- Imagem: RGB sintética 512 × 512.
-- Prompt: bounding box XYXY
+- Status: success on the first inference run.
+- Image: synthetic RGB 512 × 512.
+- Prompt: XYXY bounding box
   `[141.2, 156.2, 390.8, 365.8]`.
 - Dtype: FP32.
-- `torch.inference_mode()`: habilitado.
-- `torch.compile`: desabilitado.
-- Tempo de carregamento: 2,1297 s.
-- Tempo de `set_image`: 0,9909 s.
-- Tempo de `predict`: 0,4483 s.
-- Score da máscara selecionada: 0,9841576.
-- Índice da máscara selecionada: 1 de três máscaras.
-- Pixels positivos: 32.264.
-- Pico de VRAM alocada: 653.696.512 bytes.
-- Pico de VRAM reservada: 887.095.296 bytes.
+- `torch.inference_mode()`: enabled.
+- `torch.compile`: disabled.
+- Load time: 2.1297 s.
+- `set_image` time: 0.9909 s.
+- `predict` time: 0.4483 s.
+- Selected mask score: 0.9841576.
+- Selected mask index: 1 of three masks.
+- Positive pixels: 32,264.
+- Peak allocated VRAM: 653,696,512 bytes.
+- Peak reserved VRAM: 887,095,296 bytes.
 
-Artefatos locais, deliberadamente ignorados pelo Git:
+Local artifacts, deliberately ignored by Git:
 
 - `experiments/outputs/sam2_feasibility/input.png`
 - `experiments/outputs/sam2_feasibility/mask.png`
 - `experiments/outputs/sam2_feasibility/overlay.png`
 - `experiments/outputs/sam2_feasibility/metadata.json`
 
-O BF16 é suportado pela GPU, mas não foi necessário para concluir a M1 e não
-foi testado nesta execução.
+BF16 is supported by the GPU, but it was not needed to complete M1 and was not
+tested in this run.
 
-## Advertências e limitações
+## Caveats and limitations
 
-- O projeto oficial recomenda fortemente WSL/Ubuntu para instalações em
-  Windows. Esta prova demonstrou que o fluxo mínimo de imagem funciona no
-  Windows nativo desta máquina.
-- A extensão CUDA opcional foi intencionalmente desativada.
-- A imagem é sintética e geometricamente simples.
-- Não houve avaliação clínica nem avaliação de qualidade em laparoscopia.
-- O resultado não demonstra desempenho em vídeo, treinamento ou
+- The official project strongly recommends WSL/Ubuntu for Windows
+  installations. This proof showed that the minimal image flow works on this
+  machine's native Windows.
+- The optional CUDA extension was intentionally disabled.
+- The image is synthetic and geometrically simple.
+- There was no clinical evaluation and no quality evaluation on laparoscopy.
+- The result does not demonstrate performance on video, training or
   fine-tuning.
-- O Git exigiu `safe.directory` por comando devido a uma diferença de SID.
-  Nenhuma configuração global do Git foi modificada.
-- A primeira tentativa de atualizar ferramentas do pip foi bloqueada pela
-  restrição de rede do ambiente de execução. A mesma operação foi repetida
-  com acesso de rede autorizado e concluída.
+- Git required a per-command `safe.directory` because of a SID difference. No
+  global Git configuration was modified.
+- The first attempt to upgrade the pip tooling was blocked by the execution
+  environment's network restriction. The same operation was repeated with
+  authorized network access and completed.
 
-## Wrapper adotado na M2
+## Wrapper adopted in M2
 
-`backend/ai/segmentation/sam_segmenter.py` expõe `SAM2Segmenter` e
-`SegmentationResult`. O ciclo de vida é explícito:
+`backend/ai/segmentation/sam_segmenter.py` exposes `SAM2Segmenter` and
+`SegmentationResult`. The lifecycle is explicit:
 
-1. `load()` carrega o checkpoint externo;
-2. `set_image()` calcula o embedding RGB;
-3. `segment_with_box()` ou `segment_with_points()` executa o prompt;
-4. `clear_image()` descarta apenas o embedding;
-5. `close()` libera predictor e modelo.
+1. `load()` loads the external checkpoint;
+2. `set_image()` computes the RGB embedding;
+3. `segment_with_box()` or `segment_with_points()` runs the prompt;
+4. `clear_image()` discards only the embedding;
+5. `close()` releases the predictor and the model.
 
-Todas as máscaras e scores são retornados, com seleção padrão do maior
-score. Esse score estima a qualidade da máscara segundo o modelo; não é
-confiança clínica. A máscara automática não é *ground truth*.
+All masks and scores are returned, with the highest score selected by default.
+This score estimates mask quality according to the model; it is not clinical
+confidence. The automatic mask is not *ground truth*.
 
-O checkpoint continua externo ao CarcinoIndex, e a instalação do SAM 2
-continua sendo feita a partir do clone oficial em modo editável. Imagens
-clínicas, checkpoints e outputs de inferência não devem ser versionados.
+The checkpoint remains external to CarcinoIndex, and SAM 2 is still installed
+from the official clone in editable mode. Clinical images, checkpoints and
+inference outputs must not be versioned.

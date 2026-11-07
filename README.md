@@ -1,3 +1,5 @@
+**Language:** English · [Português](README.pt-BR.md)
+
 # CarcinoIndex
 
 CarcinoIndex is an experimental human-in-the-loop platform for investigating
@@ -6,17 +8,29 @@ carcinomatosis. Its current focus is SAM 2.1 Hiera Small with specialist prompts
 
 The system does not autonomously discover where a lesion is. The specialist
 indicates the clinical object of interest; SAM turns that prompt into a
-segmentation mask for subsequent quantitative research. Clinical lesion score
-(LS) is supplied by the specialist and is never inferred by SAM.
+segmentation mask for subsequent quantitative research. The Lesion Size (LS)
+score is supplied by the specialist and is never inferred by SAM.
 
-Academic documentation and thesis writing are developed in Portuguese.
+Documentation is available in English and Portuguese; the thesis is written in
+Portuguese.
 
 ## Research objective and limits
 
-Evaluate whether SAM 2.1 can adequately represent specialist-indicated peritoneal
-lesions in laparoscopic images, producing masks suitable for quantitative analysis.
+Evaluate to what extent SAM 2.1, conditioned on a known lesion location (a
+bounding box), produces masks spatially consistent with reference segmentations
+in laparoscopic images. The current benchmark uses ENID (endometriosis) as a
+laparoscopic proxy; it is not clinical validation for peritoneal carcinomatosis.
 This is a research objective, not a claim of clinical validation, diagnostic
 performance, or LS prediction performance.
+
+The repository uses two experiment labels:
+
+- **Experiment A**: the offline technical benchmark on ENID, with reference
+  bounding boxes as prompts and ENID reference segmentations as the comparison.
+  This is the experiment evaluated in the TCC.
+- **Experiment B**: a planned target-domain evaluation with laparoscopic
+  peritoneal carcinomatosis images and specialist review of the CarcinoIndex
+  segmentation and workflow. It has not been carried out yet.
 
 Physical lesion size in centimeters is not directly recoverable from monocular
 image pixels without calibration, a physical reference, or depth information.
@@ -29,12 +43,10 @@ SAM mask into a reference mask or establish any of these mask states.
 SAM's `selected_score` is an internal predicted quality/ranking score,
 not clinical confidence.
 
-The planned next scientific stage is a small target-domain evaluation using
-laparoscopic peritoneal carcinomatosis images, with specialist review of the
-CarcinoIndex segmentation and workflow (Experiment B). The implemented qualitative
-categories are `adequate`, `partially_adequate`, and `inadequate`; the broader study
-protocol remains pending validation. Manual mask correction or reference-mask creation is
-not required by the minimum current TCC protocol.
+The implemented qualitative categories are `adequate`, `partially_adequate`,
+and `inadequate`; the broader protocol for the planned Experiment B remains
+pending validation. Manual mask correction or reference-mask creation is not
+required by the minimum current TCC protocol.
 
 Automatic feature-based LS modelling is outside the current TCC scope and is not
 implemented. No classifier exists, and no features are computed or persisted by
@@ -61,8 +73,8 @@ The Angular frontend and FastAPI backend support:
    The annotator code remains editable and prefilled; language and loaded regions
    are preserved. The next submission creates a new case, image, and Evaluation.
 
-In Experiment B, the visible case code identifies an experimental case, not a
-patient. Each photograph may be treated as a new case; no patient relationship is
+For the planned Experiment B, the visible case code identifies an experimental
+case, not a patient. Each photograph may be treated as a new case; no patient relationship is
 inferred between images. The internal API/database name `anonymous_patient_code`
 remains unchanged. Resetting the workflow does not alter previous persisted records.
 
@@ -108,20 +120,46 @@ backend/       FastAPI, SAM wrapper, persistence
 frontend/      Angular Experiment Setup, Segmentation, and Clinical Assessment
 docs/          API lifecycle, architecture, and research methodology
 notebooks/     Synthetic SAM wrapper validation
-scripts/       Local development and SAM feasibility tools
+scripts/       Development launcher, SAM environment/feasibility checks, ENID benchmark,
+               robustness, analysis and figure CLIs (including render_enid_examples.py),
+               evaluation CSV export, and local experiment data reset
 tests/         CPU-compatible tests and opt-in PostgreSQL/CUDA integration tests
 datasets/      Research data organization; clinical images are not versioned
 experiments/   Offline benchmarks and local outputs; checkpoints are not versioned
 ```
 
+## Prerequisites
+
+The validated environment is described step by step in the
+[SAM 2.1 Windows setup guide](docs/methodology/sam2_windows_setup.md). In summary,
+from the repository root:
+
+1. Python 3.11 (the version used by CI) in a virtual environment such as `.venv`.
+2. Install PyTorch **before** the project requirements, because
+   `backend/requirements.txt` does not pin `torch`/`torchvision` and a plain
+   install may resolve a different (for example CPU-only) build:
+
+   ```powershell
+   python -m pip install torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cu124
+   python -m pip install -r backend/requirements.txt
+   ```
+
+3. Install the official [SAM 2 repository](https://github.com/facebookresearch/sam2)
+   in editable mode from a clone outside this repository (`pip install -e .`
+   in the clone; the guide uses `SAM2_BUILD_CUDA=0`). SAM 2 is not listed in
+   `backend/requirements.txt`.
+4. Download the external `sam2.1_hiera_small.pt` checkpoint and verify its
+   SHA-256 (`Get-FileHash -Algorithm SHA256`); the validated value is
+   `6d1aa6f30de5c92224f8172114de081d104bbd23dd9dc5c58996f0cad5dc4d38`.
+   The model config is `configs/sam2.1/sam2.1_hiera_s.yaml`.
+
+No checkpoint is downloaded automatically. Clinical images and checkpoints
+must stay outside version control. The frontend additionally requires Node.js 24
+(see the [frontend README](frontend/README.md)).
+
 ## Development and technical documentation
 
-Run backend commands from the repository root. Use the existing Python virtual
-environment or create one and install `backend/requirements.txt`. The backend
-uses the official [SAM 2 repository](https://github.com/facebookresearch/sam2)
-installed in editable mode and an external `sam2.1_hiera_small.pt` checkpoint.
-No checkpoint is downloaded automatically. Clinical images and checkpoints
-must stay outside version control.
+Run backend commands from the repository root.
 
 - [Backend setup and execution](backend/README.md): PostgreSQL, existing Alembic
   migrations, local storage, SAM/CUDA settings, and the Windows development script.
@@ -129,14 +167,18 @@ must stay outside version control.
   production build, and F1-F4 behavior.
 - [Experiment lifecycle API](docs/experiment_lifecycle_api.md): create and retrieve
   resources, record segmentation attempts, and finalize an Evaluation.
-- [Experiment B CSV export](backend/README.md#exportação-do-experimento-b-csv):
+- [Experiment B CSV export](backend/README.md#experiment-b-csv-export):
   read-only `python scripts/export_experiment_b.py`, one row per finalized Evaluation.
-- [Local experiment data reset](backend/README.md#reset-dos-dados-experimentais-locais):
+- [Local experiment data reset](backend/README.md#local-experiment-data-reset):
   dry-run by default; `--execute --confirm <database>` clears experiment tables and managed storage.
 - [Persistence architecture](docs/architecture/experiment_persistence.md): data
   model, transaction boundaries, and storage limitations.
 - [SAM inference contract](docs/architecture/sam2_inference_contract.md): one
   model instance, one worker, and serialized inference.
+- [SAM 2.1 Windows setup](docs/methodology/sam2_windows_setup.md): validated
+  Python/PyTorch/CUDA environment, SAM 2 installation, checkpoint and SHA-256.
+- [LS protocol pending validation](docs/methodology/pci_protocol_pending_validation.md):
+  manual LS storage and the protocol identifiers used until size criteria are validated.
 - [ENID segmentation benchmark](experiments/benchmarks/enid/README.md): offline
   Experiment A, reference box prompts, COCO polygon masks, and Dice/IoU.
 - [ENID quantitative analysis](experiments/analysis/enid/README.md): reproducible

@@ -1,3 +1,5 @@
+**Language:** English · [Português](experiment_lifecycle_api.pt-BR.md)
+
 # Experiment lifecycle in Swagger
 
 Start the configured API with PostgreSQL, Alembic migrations through `0003_optional_clinical_context`, local
@@ -8,8 +10,8 @@ All paths below use the default `/api/v1` prefix.
    Copy `case_id` from the `201` response. Codes are pseudonymous identifiers,
    trimmed, nonblank, and limited to 128 characters. Duplicates are allowed.
    Supply no names, medical record numbers, CPF, email, or other personal data.
-   The legacy field name `anonymous_patient_code` is unchanged. In Experiment B,
-   it is a pseudonymous experimental case identifier and establishes no patient
+   The legacy field name `anonymous_patient_code` is unchanged. For the planned
+   Experiment B, it is a pseudonymous experimental case identifier and establishes no patient
    identity or relationship between images. Each photograph may be a new case.
 2. `POST /cases/{case_id}/images`: select a JPEG or PNG in the multipart `image`
    field. Copy `image_id` from the `201` response. The response includes `case_id`,
@@ -49,12 +51,31 @@ Evaluation returns `422` with `{"error":{"code":"invalid_segmentation_review","m
 The failed request leaves the draft unchanged. Existing finalized records without
 review fields remain readable with both fields null.
 
+### Error responses
+
+Every error uses the same JSON envelope, `{"error":{"code":"<code>","message":"<message>"}}`,
+with no stack traces, storage keys, or filesystem paths:
+
+- `422 request_validation_error` ("The request fields are invalid or incomplete.")
+  for any request that fails schema validation, including unknown JSON fields,
+  out-of-range values, and confidence supplied without LS. Endpoint-specific `422`
+  codes such as `invalid_prompt`, `invalid_segmentation_review`, or image
+  validation codes are described in the steps above and below.
+- `503 persistence_unavailable` when the API was started without `DATABASE_URL`
+  (no session factory or storage configured). The segmentation-attempt endpoint can
+  also return `503 model_unavailable` or `503 cuda_out_of_memory`.
+- `500` with a generic, endpoint-specific code (`case_creation_failed`,
+  `image_creation_failed`, `evaluation_creation_failed`, `finalization_failed`,
+  `segmentation_failed`, or `image_content_unavailable`) for unexpected failures.
+
 Finalization means the specialist finished the evaluation, explicitly decided whether
 LS is determinable, and supplied a qualitative judgment tied to a specific segmentation attempt. That judgment
 is not clinical validation, LS, SAM confidence, or ground truth. No mask is accepted,
 validated, or transformed into a reference. The specialist supplies PCI region and
 LS when determinable; neither is inferred by SAM. The workflow does not calculate the complete PCI or perform autonomous diagnosis.
-SAM `selected_score` retains only its internal quality/ranking meaning.
+SAM `selected_score` retains only its internal quality/ranking meaning: it is technical
+SAM metadata returned with each segmentation attempt (and persisted in its metadata),
+not clinical confidence. The specialist's confidence is `annotator_confidence`.
 
 The UI starts with no region/LS answer and requires a numeric choice or the explicit
 “Could not determine” option. Only the latter becomes null in the request. The

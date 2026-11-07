@@ -1,3 +1,5 @@
+**Language:** English · [Português](README.pt-BR.md)
+
 # CarcinoIndex frontend
 
 Angular 21 standalone application shell for the academic research prototype.
@@ -57,8 +59,8 @@ submission are blocked while requests run. Completion displays safe summary info
 and an enabled Segmentation workspace action that transitions locally into F3.
 
 The visible “Pseudonymous case code” uses the unchanged API field
-`anonymous_patient_code`. In Experiment B this identifies an experimental case,
-not a patient; each photograph may be a new case, and no patient relationship is
+`anonymous_patient_code`. For the planned Experiment B, this identifies an
+experimental case, not a patient; each photograph may be a new case, and no patient relationship is
 inferred between images. Do not enter names, medical record numbers, or other
 personal identifiers. Codes are entered manually and need not be unique.
 
@@ -276,6 +278,10 @@ src/app/
       segmentation-workspace.component.ts / .html / .css / .spec.ts
       segmentation-canvas/
         segmentation-canvas.component.ts / .html / .css / .spec.ts
+  i18n/
+    language.service.ts
+    language.service.spec.ts
+    translations.ts
   app.component.ts / .html / .css / .spec.ts
   app.config.ts
 ```
