@@ -157,6 +157,35 @@ No checkpoint is downloaded automatically. Clinical images and checkpoints
 must stay outside version control. The frontend additionally requires Node.js 24
 (see the [frontend README](frontend/README.md)).
 
+## Reproducing the TCC results
+
+The results reported in the TCC (Experiment A) were produced by the version of
+this repository tagged `tcc-2026`. ENID images, annotations and the SAM 2.1
+checkpoint are **not** redistributed here; obtain them from their official
+sources.
+
+1. **Environment and checkpoint**: follow the
+   [SAM 2.1 setup guide](docs/methodology/sam2_windows_setup.md) and check that
+   `sam2.1_hiera_small.pt` has SHA-256
+   `6d1aa6f30de5c92224f8172114de081d104bbd23dd9dc5c58996f0cad5dc4d38`.
+2. **Data**: download ENID and its official train/val/test split files from the
+   [ITEC page](https://ftp.itec.aau.at/datasets/ENID/) and place them under
+   `datasets/raw/` as described in the
+   [benchmark README](experiments/benchmarks/enid/README.md#running).
+3. **Benchmark**: run `scripts/run_enid_benchmark.py` **without** `--limit`
+   (358 annotations, 160 images).
+4. **Box robustness run**: `scripts/run_enid_box_robustness.py`, which also
+   runs the single-mask ablation (same benchmark README).
+5. **Analyses**, in this order, documented in the
+   [analysis README](experiments/analysis/enid/README.md):
+   `scripts/analyze_enid_results.py` (descriptive results and figures),
+   `scripts/analyze_enid_box_baseline.py` (filled-box baseline and cluster-bootstrap CIs),
+   `scripts/analyze_enid_box_robustness.py` (robustness summary) and
+   `scripts/render_enid_qualitative_cases.py` (qualitative extremes).
+
+Random seeds are fixed, input files are checked by SHA-256, and the reference
+condition of the robustness run must reproduce the main benchmark exactly.
+
 ## Development and technical documentation
 
 Run backend commands from the repository root.
@@ -197,3 +226,8 @@ require an external checkpoint and CUDA. `notebooks/sam_validation.ipynb` and
 
 Authentication, mask editing/acceptance, bulk image/mask dataset export, automatic LS,
 and a complete PCI frontend are outside the implemented MVP.
+
+## License
+
+The code in this repository is released under the [MIT License](LICENSE).
+SAM 2 and ENID are subject to their own licenses and terms of use.
