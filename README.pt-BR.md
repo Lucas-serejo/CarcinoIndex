@@ -180,6 +180,36 @@ Nenhum checkpoint é baixado automaticamente. Imagens clínicas e checkpoints de
 ficar fora do controle de versão. O frontend exige ainda o Node.js 24 (veja o
 [README do frontend](frontend/README.pt-BR.md)).
 
+## Reprodução dos resultados do TCC
+
+Os resultados relatados no TCC (Experimento A) foram gerados pela versão deste
+repositório marcada com a tag `tcc-2026`. As imagens e anotações do ENID e o
+checkpoint do SAM 2.1 **não** são redistribuídos aqui; obtenha-os nas fontes
+oficiais.
+
+1. **Ambiente e checkpoint**: siga o
+   [guia de configuração do SAM 2.1](docs/methodology/sam2_windows_setup.pt-BR.md)
+   e confira se `sam2.1_hiera_small.pt` tem SHA-256
+   `6d1aa6f30de5c92224f8172114de081d104bbd23dd9dc5c58996f0cad5dc4d38`.
+2. **Dados**: baixe o ENID e os arquivos oficiais de divisão
+   treino/validação/teste na [página do ITEC](https://ftp.itec.aau.at/datasets/ENID/)
+   e coloque-os em `datasets/raw/`, conforme descrito no
+   [README do benchmark](experiments/benchmarks/enid/README.pt-BR.md#execução).
+3. **Benchmark**: execute `scripts/run_enid_benchmark.py` **sem** `--limit`
+   (358 anotações, 160 imagens).
+4. **Execução da robustez**: `scripts/run_enid_box_robustness.py`, que também
+   executa a ablação da máscara única (mesmo README do benchmark).
+5. **Análises**, nesta ordem, documentadas no
+   [README das análises](experiments/analysis/enid/README.pt-BR.md):
+   `scripts/analyze_enid_results.py` (resultados descritivos e figuras),
+   `scripts/analyze_enid_box_baseline.py` (baseline da caixa preenchida e ICs por
+   bootstrap agrupado), `scripts/analyze_enid_box_robustness.py` (síntese da robustez)
+   e `scripts/render_enid_qualitative_cases.py` (casos extremos qualitativos).
+
+As sementes aleatórias são fixas, os arquivos de entrada são conferidos por
+SHA-256 e a condição de referência da robustez deve reproduzir exatamente o
+benchmark principal.
+
 ## Desenvolvimento e documentação técnica
 
 Execute os comandos do backend a partir da raiz do repositório.
@@ -227,3 +257,8 @@ exploração sintética/não clínica.
 
 Autenticação, edição/aceite de máscaras, exportação em lote de imagens/máscaras,
 LS automático e um frontend completo de PCI estão fora do MVP implementado.
+
+## Licença
+
+O código deste repositório é distribuído sob a [Licença MIT](LICENSE).
+O SAM 2 e o ENID estão sujeitos às suas próprias licenças e termos de uso.
